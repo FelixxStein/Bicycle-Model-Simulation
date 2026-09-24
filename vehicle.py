@@ -8,11 +8,18 @@ class vehicle:
         self.wheel_base=wheel_base
         self.steering_angle = starting_steering_angle
         self.vehicle_angle= starting_vehicle_angle
+        self.delta_t=0.01
 
-    def update(self):
-        self.x = self.x + self.velocity*np.cos(self.vehicle_angle)
-        self.y = self.y + self.velocity*np.sin(self.vehicle_angle)
-        self.velocity =self.velocity+self.acceleration
-        self.vehicle_angle=self.vehicle_angle+(self.velocity*np.tan(self.steering_angle))/self.wheel_base
+    def update_position(self):
+        self.x = self.x + self.velocity*np.cos(self.vehicle_angle*(np.pi/180)) * self.delta_t
+        self.y = self.y + self.velocity*np.sin(self.vehicle_angle*(np.pi/180)) * self.delta_t
+        self.velocity =self.velocity+self.acceleration * self.delta_t
+        self.vehicle_angle=self.vehicle_angle+((self.velocity*np.tan(self.steering_angle*(np.pi/180)))/self.wheel_base) * self.delta_t
+
+    def update(self, acceleration):
+        self.acceleration=acceleration
+
+    def update_steering_angle(self,steering_angle):
+        self.steering_angle=steering_angle
 
     
