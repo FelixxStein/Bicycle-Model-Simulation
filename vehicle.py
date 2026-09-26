@@ -1,6 +1,6 @@
 import numpy as np
 class vehicle:
-    def __init__(self, velocity=0, acceleration=0, starting_x=0, starting_y=0, starting_steering_angle=0, starting_vehicle_angle=0, wheel_base=1):
+    def __init__(self, velocity=0, acceleration=0, starting_x=0, starting_y=0, starting_steering_angle=0, starting_vehicle_angle=0, wheel_base=1, delta_t=0.01):
         self.velocity = velocity #in m/s
         self.acceleration = acceleration # in m/s^2
         self.x=starting_x
@@ -8,7 +8,7 @@ class vehicle:
         self.wheel_base=wheel_base
         self.steering_angle = starting_steering_angle
         self.vehicle_angle= starting_vehicle_angle
-        self.delta_t=0.01
+        self.delta_t=delta_t
 
     def update_position(self):
         self.x = self.x + self.velocity*np.cos(self.vehicle_angle*(np.pi/180)) * self.delta_t
