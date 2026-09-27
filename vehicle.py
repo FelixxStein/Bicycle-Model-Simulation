@@ -26,3 +26,13 @@ class vehicle:
 
     def get_vehicle_angle(self):
         return self.vehicle_angle
+
+    def get_velocity(self):
+        return self.velocity
+    def get_wheelbase(self):
+        return self.wheel_base
+
+    def set_starting_angle(self, racetrack):
+        vector=racetrack[1]-racetrack[0]
+        self.vehicle_angle=np.atan2(vector[1],vector[0])*(180/np.pi)
+        
