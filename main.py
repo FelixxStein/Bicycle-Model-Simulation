@@ -3,41 +3,13 @@ import numpy as np
 import vehicle
 import math
 import animate
-import csv
-import pandas as pd
-
+from csv_to_coordinates import csv_to_coordinates
 import matplotlib.pyplot as plt
 
-
-
-df = pd.read_csv("/Users/felixarbeit/Documents/Strategiewechsel/Bicycle-Model-Simulation/Hockenheim.csv")
-x=df.iloc[:, 0].tolist()
-y=df.iloc[:, 1].tolist()
-w_tr_right_m=df.iloc[:, 2].tolist()
-w_tr_left_m=df.iloc[:, 3].tolist()
-x=np.array(x)
-y=np.array(y)
-points = np.column_stack((x, y))
-points = points.squeeze()
-borderright=[]
-borderleft=[]
-s=np.sin(np.radians(90))
-c=np.cos(np.radians(90))
-RR = np.array([[c, -s], [s, c]])
-RL = np.array([[c, s], [-s, c]])
-for i in range(len(points)-1):
-    diff=points[i+1]-points[i]
-    normalvector=diff/np.linalg.norm(diff)
-    borderright.append(points[i]+w_tr_right_m[i]*(RR@normalvector))
-    borderleft.append(points[i]+w_tr_left_m[i]*(RL@normalvector))
-
-diff=points[0]-points[len(points)-1]
-normalvector=diff/np.linalg.norm(diff)
-borderright.append(points[0]+w_tr_right_m[len(points)-1]*(RR@normalvector))
-borderleft.append(points[0]+w_tr_left_m[len(points)-1]*(RL@normalvector))
-
-borderleft = np.array(borderleft)
-borderright = np.array(borderright)
+spielberg=csv_to_coordinates("Spielberg.csv")
+points=spielberg.get_midline()
+borderleft=spielberg.get_border_left()
+borderright=spielberg.get_border_right()
 
 ##pure persuite 
 vector=points[1]-points[0]
