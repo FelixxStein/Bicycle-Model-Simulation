@@ -1,7 +1,7 @@
 import numpy as np
 
 class pure_pursuit_controller:
-    def __init__(self,path, wheel_base, lookahead_distance_minimum=3.5, lookahead_distance_maximum=20, lookahead_scale_factor=1.5, lookahead_distance_base=1):
+    def __init__(self,path, wheel_base, lookahead_distance_minimum=3.0, lookahead_distance_maximum=20, lookahead_scale_factor=1.5, lookahead_distance_base=1):
         self.lookahead_min=lookahead_distance_minimum
         self.lookahead_max=lookahead_distance_maximum
         self.lookahead_gain=lookahead_scale_factor
