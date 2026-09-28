@@ -1,8 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import vehicle
-import math
-import animate
 from csv_to_coordinates import csv_to_coordinates
 from pure_pursuit_controller import pure_pursuit_controller
 import matplotlib.pyplot as plt
@@ -10,12 +8,12 @@ from PID_speed_controller import PID_speed_controller
 
 
 #convert csv to coordinates
-spielberg=csv_to_coordinates("Spielberg.csv")
+spielberg=csv_to_coordinates("Hockenheim.csv")
 path=spielberg.get_midline()
 borderleft=spielberg.get_border_left()
 borderright=spielberg.get_border_right()
 #create car
-car=vehicle.vehicle(starting_x=path[0][0], starting_y=path[0][1], starting_velocity=0)
+car=vehicle.dynamic_vehicle(starting_x=path[0][0], starting_y=path[0][1])
 car.set_starting_angle(path)
 
 ##controller 
@@ -40,7 +38,6 @@ while not finished:
     car.time_step()
     cartrace.append(car.get_position())
     velocity_list.append(car.get_velocity())
-
 ##Plot
 cartrace=np.array(cartrace)
 

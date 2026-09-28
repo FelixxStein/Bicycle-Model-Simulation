@@ -1,12 +1,23 @@
 import numpy as np
 class vehicle:
-    def __init__(self,max_speed=33, starting_velocity=0, starting_acceleration=0, starting_x=0, starting_y=0, starting_steering_angle=0, starting_vehicle_angle=0, wheel_base=2, delta_t=0.01,max_acceleration=14, max_brake=35):
+    def __init__(self,
+                 max_speed=100, 
+                 starting_velocity=0, 
+                 starting_acceleration=0, 
+                 starting_x=0, 
+                 starting_y=0, 
+                 starting_steering_angle=0, 
+                 starting_vehicle_angle=0, 
+                 wheel_base=2, 
+                 delta_t=0.01,
+                 max_acceleration=14, 
+                max_brake=35):
         self.velocity = starting_velocity #in m/s
         self.max_acceleration=max_acceleration
         self.max_brake=max_brake
         self.max_speed=max_speed
         self.acceleration = starting_acceleration # in m/s^2
-        self.position=np.array([starting_x,starting_y])
+        self.position=np.array([starting_x,starting_y], dtype=float)
         self.wheel_base=wheel_base
         self.steering_angle = starting_steering_angle
         self.vehicle_angle= starting_vehicle_angle
@@ -51,7 +62,7 @@ class vehicle:
 
 class dynamic_vehicle(vehicle):
     def __init__(self,
-             max_speed=33, 
+             max_speed=100, 
              starting_vx=0,              
              starting_vy=0,              
              starting_yaw_rate=0,        
@@ -64,12 +75,40 @@ class dynamic_vehicle(vehicle):
              COG_to_front_axis=1.5, 
              COG_to_rear_axis=2.0,       
              yaw_moment_of_inertia=1000,
-             front_cornering_stiffness=3140, # Angepasst auf typische N/rad
-             rear_cornering_stiffness=4000,  # Angepasst auf typische N/rad
+             front_cornering_stiffness=3140,
+             rear_cornering_stiffness=4000,  
              delta_t=0.01,
              max_acceleration=14, 
              max_brake=10):
         calculated_wheel_base=COG_to_front_axis+COG_to_rear_axis
         starting_velocity=starting_vx+starting_vy
         super().__init__(max_speed, starting_velocity,starting_acceleration, starting_x, starting_y, starting_steering_angle, starting_vehicle_angle, calculated_wheel_base, delta_t, max_acceleration, max_brake)
-        
+        self.mass=mass
+        self.yaw_moment_of_inertia=yaw_moment_of_inertia
+        self.front_cornering_stiffness=front_cornering_stiffness
+        self.rear_cornering_stiffness=rear_cornering_stiffness
+        self.yaw_rate=starting_yaw_rate
+        self.vx=starting_vx
+        self.vy=starting_vy
+        self.COG_to_front_axis=COG_to_front_axis
+        self.COG_to_rear_axis=COG_to_rear_axis
+
+    def time_step(self):
+        front_slip_angle=self.steering_angle-np.degrees(np.arctan((self.vy+self.COG_to_front_axis*np.radians(self.yaw_rate))/max(0.5,self.vx)))
+        rear_slip_angle=-np.degrees(np.arctan((self.vy-self.COG_to_rear_axis*np.radians(self.yaw_rate))/max(0.5,self.vx)))
+        front_lateral_force=self.front_cornering_stiffness*front_slip_angle
+        rear_lateral_forces=self.rear_cornering_stiffness*rear_slip_angle
+        v_dot_x=self.acceleration+self.vy*np.radians(self.yaw_rate)-(front_lateral_force*np.sin(np.radians(self.steering_angle)))/self.mass
+        v_dot_y=((front_lateral_force*np.cos(np.radians(self.steering_angle))+rear_lateral_forces)/self.mass)-self.vx*np.radians(self.yaw_rate)
+        yaw_acceleration=np.degrees((self.COG_to_front_axis*front_lateral_force*np.cos(np.radians(self.steering_angle))-self.COG_to_rear_axis*rear_lateral_forces)/self.yaw_moment_of_inertia)
+        self.vx+=v_dot_x*self.delta_t
+        self.vy+=v_dot_y*self.delta_t
+        self.vehicle_angle += self.yaw_rate * self.delta_t
+        self.yaw_rate+=yaw_acceleration*self.delta_t
+        self.position[0]+=(self.vx*np.cos(np.radians(self.vehicle_angle))-self.vy*np.sin(np.radians(self.vehicle_angle)))*self.delta_t
+        self.position[1]+=(self.vx*np.sin(np.radians(self.vehicle_angle))+self.vy*np.cos(np.radians(self.vehicle_angle)))*self.delta_t
+
+    def get_velocity(self):
+        return np.sqrt(self.vx**2+self.vy**2)
+
+
