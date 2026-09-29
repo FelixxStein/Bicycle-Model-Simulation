@@ -4,7 +4,7 @@ import vehicle
 from csv_to_coordinates import csv_to_coordinates
 import matplotlib.pyplot as plt
 from basic_drive_controller import basic_drive_controller
-
+import pandas as pd
 
 #convert csv to coordinates
 spielberg=csv_to_coordinates("Spielberg.csv")
@@ -35,9 +35,6 @@ while not finished:
     car.time_step()
     cartrace.append(car.get_position())
     velocity_list.append(car.get_velocity())
-
-
-    
 ##Plot
 cartrace=np.array(cartrace)
 
@@ -51,7 +48,7 @@ sc = plt.scatter(
     cartrace[:, 0],
     cartrace[:, 1],
     c=velocity_list,
-    cmap="coolwarm", 
+    cmap="coolwarm",  
     s=3,  # Punktgröße
 )
 
@@ -59,4 +56,7 @@ cbar = plt.colorbar(sc)
 cbar.set_label("Geschwindigkeit [m/s]")
 plt.show()
 
-plt.show()
+df = pd.DataFrame(cartrace)
+df.to_csv("cartrace.csv")
+dfs = pd.DataFrame(velocity_list)
+dfs.to_csv("velocity_list.csv")
