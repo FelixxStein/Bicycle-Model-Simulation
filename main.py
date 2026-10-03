@@ -25,19 +25,19 @@ cartrace=[]
 cartrace.append(car.get_position())
 finished= False
 velocity_list=[car.get_velocity()]
+
 while not finished:
     
     velocity=car.get_velocity()
     position=car.get_position()
-    acceleration, steering_angle, finished = BDC.compute_control(position, car.get_velocity(), car.get_vehicle_angle())
-    car.update_acceleration(acceleration)
-    car.update_steering_angle(steering_angle*(180/np.pi))
-    car.time_step()
+    acceleration, steering_angle, finished = BDC.compute_control(position, car.get_velocity(), car.get_yaw())
+    control_inputs=np.array([steering_angle,acceleration])
+    car.time_step(control_inputs,0.01)
     cartrace.append(car.get_position())
     velocity_list.append(car.get_velocity())
+
 ##Plot
 cartrace=np.array(cartrace)
-
 
 #plt.plot(path[:, 0], path[:, 1], color="RED")
 plt.plot(borderleft[:, 0], borderleft[:, 1], color="GRAY")
@@ -55,8 +55,3 @@ sc = plt.scatter(
 cbar = plt.colorbar(sc)
 cbar.set_label("Geschwindigkeit [m/s]")
 plt.show()
-
-df = pd.DataFrame(cartrace)
-df.to_csv("cartrace.csv")
-dfs = pd.DataFrame(velocity_list)
-dfs.to_csv("velocity_list.csv")

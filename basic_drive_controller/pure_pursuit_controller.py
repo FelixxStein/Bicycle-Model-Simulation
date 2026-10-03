@@ -15,7 +15,7 @@ class pure_pursuit_controller:
         return min(max(ld,self.lookahead_min),self.lookahead_max)
 
     def find_closest_index(self, car_position):
-        closest_index=0
+        closest_index=self.last_closest_index
         for i in range(self.last_closest_index, min(self.last_closest_index+40, len(self.path)-1)):
             if np.sqrt(np.sum((car_position - self.path[i])**2))<np.sqrt(np.sum((car_position - self.path[closest_index])**2)):
                 closest_index=i
@@ -26,7 +26,7 @@ class pure_pursuit_controller:
         for i in range(self.last_closest_index, len(self.path)-1):
             distance=np.sqrt(np.sum((position - self.path[i])**2))
             dxy=self.path[i]-position
-            if distance>lookahead and dxy[0] * np.cos(np.radians(vehicle_angle)) + dxy[1]*np.sin(np.radians(vehicle_angle))>0:
+            if distance>lookahead and dxy[0] * np.cos(vehicle_angle) + dxy[1]*np.sin(vehicle_angle)>0:
                 return i
         return len(self.path)-1
         
@@ -39,7 +39,7 @@ class pure_pursuit_controller:
             return 0.0, True
         dxy=self.path[next_index]-position
         distance=np.sqrt(np.sum((position - self.path[next_index])**2))
-        ylokal=-dxy[0]*np.sin(np.radians(vehicle_angle))+dxy[1]*np.cos(np.radians(vehicle_angle))
+        ylokal=-dxy[0]*np.sin(vehicle_angle)+dxy[1]*np.cos(vehicle_angle)
         path_curvature=(2*ylokal/distance**2)
         steering_angle=np.arctan(path_curvature*self.wheel_base)
         return steering_angle, False
