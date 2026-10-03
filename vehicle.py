@@ -21,9 +21,10 @@ class vehicle():
         return np.array([self.state[0], self.state[1]])
 
     def time_step(self,control_inputs, delta_t):
-        control_inputs[0]=self.update_steering_angle(control_inputs[0])
-        control_inputs[1]=self.update_acceleration(control_inputs[1])
-        self.state=integrator(self.derivative_function,self.state,control_inputs, delta_t)
+        copy_control_inputs=control_inputs.copy()
+        copy_control_inputs[0]=self.update_steering_angle(copy_control_inputs[0])
+        copy_control_inputs[1]=self.update_acceleration(copy_control_inputs[1])
+        self.state=integrator(self.derivative_function,self.state,copy_control_inputs, delta_t)
 
     def get_yaw(self):
         return self.state[2]
