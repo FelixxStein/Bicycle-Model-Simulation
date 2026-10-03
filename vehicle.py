@@ -3,6 +3,8 @@ def integrator(derivative_function ,state ,control_inputs, delta_t):
     change=derivative_function(state,control_inputs)
     state=state+change*delta_t
     return state
+def tire_function(slip_angle,stiffness_factor,shape_factor,peak_factor,curvature_factor):
+    return peak_factor*np.sin(shape_factor*np.arctan(stiffness_factor*slip_angle-curvature_factor*(stiffness_factor*slip_angle-np.arctan(stiffness_factor*slip_angle))))
 
 class vehicle():
     def __init__(self,
@@ -99,7 +101,12 @@ class dynamic_vehicle(vehicle):
              front_cornering_stiffness=180000,
              rear_cornering_stiffness=230000,  
              max_acceleration=14, 
-             max_brake=10):
+             max_brake=10,
+             shape_factor=1.3,
+             curvature_factor=0,
+             friction_coefficient_front=1.5,
+             friction_coefficient_rear=1.5
+             ):
         calculated_wheel_base=COG_to_front_axis+COG_to_rear_axis
         state=np.array([starting_x,starting_y,starting_yaw,starting_vx,starting_vy,starting_yaw_rate])
         super().__init__(state,max_speed,calculated_wheel_base, max_acceleration, max_brake)
@@ -109,6 +116,16 @@ class dynamic_vehicle(vehicle):
         self.COG_to_front_axis=COG_to_front_axis
         self.COG_to_rear_axis=COG_to_rear_axis
         self.mass=mass
+        self.friction_coefficient_front=friction_coefficient_front
+        self.friction_coefficient_rear=friction_coefficient_rear
+        self.shape_factor=shape_factor
+        self.curvature_factor=curvature_factor
+        self.vertical_force_front=(self.mass*9.81*self.COG_to_rear_axis)/self.wheel_base
+        self.vertical_force_rear=(self.mass*9.81*self.COG_to_front_axis)/self.wheel_base
+        self.peak_factor_front=self.friction_coefficient_front*self.vertical_force_front
+        self.peak_factor_rear=self.friction_coefficient_rear*self.vertical_force_rear
+        self.stiffness_factor_front=self.front_cornering_stiffness/(self.shape_factor*self.peak_factor_front)
+        self.stiffness_factor_rear=self.rear_cornering_stiffness/(self.shape_factor*self.peak_factor_rear)
 
     def derivative_function(self, state, control_inputs):
         yaw=state[2]
