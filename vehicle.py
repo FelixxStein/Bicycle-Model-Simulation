@@ -56,14 +56,14 @@ class vehicle():
     
 class kinematic_vehicle(vehicle):
     def __init__(self,
-                 max_speed=100, 
-                 starting_velocity=0, 
-                 starting_x=0, 
-                 starting_y=0, 
-                 starting_steering_angle=0, 
-                 starting_yaw=0, 
-                 wheel_base=2, 
-                 max_acceleration=14, 
+                max_speed=100, 
+                starting_velocity=0, 
+                starting_x=0, 
+                starting_y=0, 
+                starting_steering_angle=0, 
+                starting_yaw=0, 
+                wheel_base=2, 
+                max_acceleration=14, 
                 max_brake=35):
         state=np.array([starting_x,starting_y,starting_yaw,starting_velocity])
         super().__init__(state,max_speed,wheel_base,max_acceleration,max_brake)
@@ -87,7 +87,7 @@ class kinematic_vehicle(vehicle):
 
 class dynamic_vehicle(vehicle):
     def __init__(self,
-             max_speed=100, 
+             max_speed=90, 
              starting_vx=0,              
              starting_vy=0,              
              starting_yaw_rate=0,        
@@ -95,17 +95,17 @@ class dynamic_vehicle(vehicle):
              starting_y=0, 
              starting_yaw=0,  
              mass=800,
-             COG_to_front_axis=1.5, 
-             COG_to_rear_axis=2.0,       
+             COG_to_front_axis=2, 
+             COG_to_rear_axis=1.5,       
              yaw_moment_of_inertia=1000,
              front_cornering_stiffness=180000,
              rear_cornering_stiffness=230000,  
-             max_acceleration=14, 
-             max_brake=10,
+             max_acceleration=11, 
+             max_brake=40,
              shape_factor=1.3,
              curvature_factor=0,
-             friction_coefficient_front=1.5,
-             friction_coefficient_rear=1.5
+             friction_coefficient_front=1.6,
+             friction_coefficient_rear=1.6
              ):
         calculated_wheel_base=COG_to_front_axis+COG_to_rear_axis
         state=np.array([starting_x,starting_y,starting_yaw,starting_vx,starting_vy,starting_yaw_rate])
@@ -137,8 +137,8 @@ class dynamic_vehicle(vehicle):
 
         front_slip_angle=steering_angle-np.arctan((vy+self.COG_to_front_axis*yaw_rate)/np.maximum(0.5,vx))
         rear_slip_angle=-np.arctan((vy-(self.COG_to_rear_axis*yaw_rate))/np.maximum(0.5,vx))
-        front_lateral_force=self.front_cornering_stiffness*front_slip_angle
-        rear_lateral_forces=self.rear_cornering_stiffness*rear_slip_angle
+        front_lateral_force=tire_function(front_slip_angle,self.stiffness_factor_front,self.shape_factor,self.peak_factor_front,self.curvature_factor)
+        rear_lateral_forces=tire_function(rear_slip_angle,self.stiffness_factor_rear,self.shape_factor,self.peak_factor_rear, self.curvature_factor)
         v_dot_x=acceleration+vy*yaw_rate-(front_lateral_force*np.sin(steering_angle))/self.mass
         v_dot_y=((front_lateral_force*np.cos(steering_angle)+rear_lateral_forces)/self.mass)-vx*yaw_rate
         yaw_acceleration=(self.COG_to_front_axis*front_lateral_force*np.cos(steering_angle)-self.COG_to_rear_axis*rear_lateral_forces)/self.yaw_moment_of_inertia

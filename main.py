@@ -19,7 +19,7 @@ car.set_starting_angle(path)
 BDC=basic_drive_controller.basic_drive_controller(path, car.get_max_brake(), car.get_wheelbase(),car.get_max_speed())
 
 
-
+r=0
 
 cartrace=[]
 cartrace.append(car.get_position())
@@ -35,6 +35,8 @@ while not finished:
     car.time_step(control_inputs,0.01)
     cartrace.append(car.get_position())
     velocity_list.append(car.get_velocity())
+    r+=1
+    if r==20000: break
 
 ##Plot
 cartrace=np.array(cartrace)
@@ -52,6 +54,8 @@ sc = plt.scatter(
     s=3,  # Punktgröße
 )
 
+
 cbar = plt.colorbar(sc)
+print("Time:", len(cartrace)*0.01)
 cbar.set_label("Geschwindigkeit [m/s]")
 plt.show()
