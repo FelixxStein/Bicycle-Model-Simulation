@@ -1,4 +1,5 @@
 import numpy as np
+import constants
 def integrator(derivative_function ,state ,control_inputs, delta_t):
     change=derivative_function(state,control_inputs)
     state=state+change*delta_t
@@ -105,7 +106,12 @@ class dynamic_vehicle(vehicle):
              shape_factor=1.3,
              curvature_factor=0,
              friction_coefficient_front=1.6,
-             friction_coefficient_rear=1.6
+             friction_coefficient_rear=1.6,
+             downforce_area=4.5,
+             drag_area=1.15,
+             rolling_resistance_coefficient=0.015,
+             aero_balance_front=0.45,
+             brake_balance_front=0.55
              ):
         calculated_wheel_base=COG_to_front_axis+COG_to_rear_axis
         state=np.array([starting_x,starting_y,starting_yaw,starting_vx,starting_vy,starting_yaw_rate])
@@ -120,12 +126,17 @@ class dynamic_vehicle(vehicle):
         self.friction_coefficient_rear=friction_coefficient_rear
         self.shape_factor=shape_factor
         self.curvature_factor=curvature_factor
-        self.vertical_force_front=(self.mass*9.81*self.COG_to_rear_axis)/self.wheel_base
-        self.vertical_force_rear=(self.mass*9.81*self.COG_to_front_axis)/self.wheel_base
-        self.peak_factor_front=self.friction_coefficient_front*self.vertical_force_front
-        self.peak_factor_rear=self.friction_coefficient_rear*self.vertical_force_rear
+        self.vertical_force_front=(self.mass*constants.GRAVITY*self.COG_to_rear_axis)/self.wheel_base
+        self.vertical_force_rear=(self.mass*constants.GRAVITY*self.COG_to_front_axis)/self.wheel_base
         self.stiffness_factor_front=self.front_cornering_stiffness/(self.shape_factor*self.peak_factor_front)
         self.stiffness_factor_rear=self.rear_cornering_stiffness/(self.shape_factor*self.peak_factor_rear)
+        self.downforce_factor=0.5*constants.AIR_DENSITY*downforce_area
+        self.drag_constant=0.5*constants.AIR_DENSITY*drag_area
+        self.rolling_resistance_coefficient=rolling_resistance_coefficient
+        self.aero_balance_front=aero_balance_front
+        self.brake_balance_front=brake_balance_front
+        self.normalized_tire_stiffness_front=self.stiffness_factor_front/self.vertical_force_front
+        self.normalized_tire_stiffness_rear=self.stiffness_factor_rear/self.vertical_force_rear
 
     def derivative_function(self, state, control_inputs):
         yaw=state[2]
@@ -134,14 +145,21 @@ class dynamic_vehicle(vehicle):
         yaw_rate=state[5]
         steering_angle=control_inputs[0]
         acceleration=control_inputs[1]
-
+        down_force=self.downforce_factor*(vx**2)
+        drag_force=self.drag_constant*vx*abs(vx)
+        roll_force=self.rolling_resistance_coefficient*(self.mass*constants.GRAVITY+down_force)*np.sign(vx)
+        front_axle_load=self.vertical_force_front+self.aero_balance_front*down_force
+        rear_axle_load=self.peak_factor_rear+(1-self.aero_balance_front)*down_force
+        peak_factor_front=self.friction_coefficient_front*front_axle_load
+        peak_factor_rear=self.friction_coefficient_rear*rear_axle_load
         front_slip_angle=steering_angle-np.arctan((vy+self.COG_to_front_axis*yaw_rate)/np.maximum(0.5,vx))
         rear_slip_angle=-np.arctan((vy-(self.COG_to_rear_axis*yaw_rate))/np.maximum(0.5,vx))
-        front_lateral_force=tire_function(front_slip_angle,self.stiffness_factor_front,self.shape_factor,self.peak_factor_front,self.curvature_factor)
-        rear_lateral_forces=tire_function(rear_slip_angle,self.stiffness_factor_rear,self.shape_factor,self.peak_factor_rear, self.curvature_factor)
+        front_lateral_force=tire_function(front_slip_angle,self.stiffness_factor_front,self.shape_factor,peak_factor_front,self.curvature_factor)
+        rear_lateral_forces=tire_function(rear_slip_angle,self.stiffness_factor_rear,self.shape_factor,peak_factor_rear, self.curvature_factor)
         v_dot_x=acceleration+vy*yaw_rate-(front_lateral_force*np.sin(steering_angle))/self.mass
         v_dot_y=((front_lateral_force*np.cos(steering_angle)+rear_lateral_forces)/self.mass)-vx*yaw_rate
         yaw_acceleration=(self.COG_to_front_axis*front_lateral_force*np.cos(steering_angle)-self.COG_to_rear_axis*rear_lateral_forces)/self.yaw_moment_of_inertia
+        
         
         x_dot=vx*np.cos(yaw)-vy*np.sin(yaw)
         y_dot=vx*np.sin(yaw)+vy*np.cos(yaw)

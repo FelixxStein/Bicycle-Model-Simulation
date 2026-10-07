@@ -89,6 +89,7 @@ class PID_speed_controller:
     
         Dk=(ek-self.ek_prev)/self.delta_t
         acceleration=self.Kp*ek+self.Ki*self.Ik+self.Kd*Dk
+        self.ek_prev=ek
         return acceleration
 
     
