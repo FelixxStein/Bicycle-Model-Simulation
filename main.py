@@ -12,7 +12,7 @@ path=spielberg.get_midline()
 borderleft=spielberg.get_border_left()
 borderright=spielberg.get_border_right()
 #create car
-car=vehicle.dynamic_vehicle(starting_x=path[0][0], starting_y=path[0][1])
+car=vehicle.dynamic_vehicle(starting_x=path[0][0], starting_y=path[0][1], max_acceleration=6.5, max_brake=13)
 car.set_starting_angle(path)
 
 ##controller 
@@ -37,10 +37,7 @@ while not finished:
     velocity_list.append(car.get_velocity())
     r+=1
     if r==20000: break
-
-##Plot
 cartrace=np.array(cartrace)
-
 #plt.plot(path[:, 0], path[:, 1], color="RED")
 plt.plot(borderleft[:, 0], borderleft[:, 1], color="GRAY")
 plt.plot(borderright[:, 0], borderright[:, 1], color="GRAY")

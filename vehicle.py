@@ -128,15 +128,37 @@ class dynamic_vehicle(vehicle):
         self.curvature_factor=curvature_factor
         self.vertical_force_front=(self.mass*constants.GRAVITY*self.COG_to_rear_axis)/self.wheel_base
         self.vertical_force_rear=(self.mass*constants.GRAVITY*self.COG_to_front_axis)/self.wheel_base
-        self.stiffness_factor_front=self.front_cornering_stiffness/(self.shape_factor*self.peak_factor_front)
-        self.stiffness_factor_rear=self.rear_cornering_stiffness/(self.shape_factor*self.peak_factor_rear)
+        peak_factor_front=friction_coefficient_front*self.vertical_force_front
+        peak_factor_rear=friction_coefficient_rear*self.vertical_force_rear
+        self.stiffness_factor_front=self.front_cornering_stiffness/(self.shape_factor*peak_factor_front)
+        self.stiffness_factor_rear=self.rear_cornering_stiffness/(self.shape_factor*peak_factor_rear)
         self.downforce_factor=0.5*constants.AIR_DENSITY*downforce_area
         self.drag_constant=0.5*constants.AIR_DENSITY*drag_area
         self.rolling_resistance_coefficient=rolling_resistance_coefficient
         self.aero_balance_front=aero_balance_front
         self.brake_balance_front=brake_balance_front
-        self.normalized_tire_stiffness_front=self.stiffness_factor_front/self.vertical_force_front
-        self.normalized_tire_stiffness_rear=self.stiffness_factor_rear/self.vertical_force_rear
+        
+    def friction_circle(self, acceleration,lateral_force_front,lateral_force_rear, front_axle_load,rear_axle_load):
+        longitudinal_force_required=self.mass*acceleration
+        if longitudinal_force_required>0:
+            longitudinal_tire_force_front=0
+            longitudinal_tire_force_back=longitudinal_force_required
+        else:
+            longitudinal_tire_force_front=self.brake_balance_front*longitudinal_force_required
+            longitudinal_tire_force_back=(1-self.brake_balance_front)*longitudinal_force_required
+        budget_rear=self.friction_coefficient_rear*rear_axle_load
+        budget_front=self.friction_coefficient_front*front_axle_load
+        longitudinal_tire_force_back=np.clip(longitudinal_tire_force_back,-budget_rear,budget_rear)
+        longitudinal_tire_force_front=np.clip(longitudinal_tire_force_front,-budget_front,budget_front)
+        ratio_front=longitudinal_tire_force_front/budget_front
+        ratio_back=longitudinal_tire_force_back/budget_rear
+        factor_rear=np.sqrt(1-ratio_back**2)
+        factor_front=np.sqrt(1-ratio_front**2)
+        lateral_force_front=lateral_force_front*factor_front
+        lateral_force_rear=lateral_force_rear*factor_rear
+        return longitudinal_tire_force_front,longitudinal_tire_force_back, lateral_force_front, lateral_force_rear
+
+
 
     def derivative_function(self, state, control_inputs):
         yaw=state[2]
@@ -149,16 +171,17 @@ class dynamic_vehicle(vehicle):
         drag_force=self.drag_constant*vx*abs(vx)
         roll_force=self.rolling_resistance_coefficient*(self.mass*constants.GRAVITY+down_force)*np.sign(vx)
         front_axle_load=self.vertical_force_front+self.aero_balance_front*down_force
-        rear_axle_load=self.peak_factor_rear+(1-self.aero_balance_front)*down_force
+        rear_axle_load=self.vertical_force_rear+(1-self.aero_balance_front)*down_force
         peak_factor_front=self.friction_coefficient_front*front_axle_load
         peak_factor_rear=self.friction_coefficient_rear*rear_axle_load
         front_slip_angle=steering_angle-np.arctan((vy+self.COG_to_front_axis*yaw_rate)/np.maximum(0.5,vx))
         rear_slip_angle=-np.arctan((vy-(self.COG_to_rear_axis*yaw_rate))/np.maximum(0.5,vx))
         front_lateral_force=tire_function(front_slip_angle,self.stiffness_factor_front,self.shape_factor,peak_factor_front,self.curvature_factor)
-        rear_lateral_forces=tire_function(rear_slip_angle,self.stiffness_factor_rear,self.shape_factor,peak_factor_rear, self.curvature_factor)
-        v_dot_x=acceleration+vy*yaw_rate-(front_lateral_force*np.sin(steering_angle))/self.mass
-        v_dot_y=((front_lateral_force*np.cos(steering_angle)+rear_lateral_forces)/self.mass)-vx*yaw_rate
-        yaw_acceleration=(self.COG_to_front_axis*front_lateral_force*np.cos(steering_angle)-self.COG_to_rear_axis*rear_lateral_forces)/self.yaw_moment_of_inertia
+        rear_lateral_force=tire_function(rear_slip_angle,self.stiffness_factor_rear,self.shape_factor,peak_factor_rear, self.curvature_factor)
+        longitudinal_tire_force_front,longitudinal_tire_force_back, front_lateral_force, rear_lateral_force=self.friction_circle(acceleration, front_lateral_force,rear_lateral_force,front_axle_load,rear_axle_load)
+        v_dot_x=(longitudinal_tire_force_front*np.cos(steering_angle)-front_lateral_force*np.sin(steering_angle)+longitudinal_tire_force_back-drag_force-roll_force)/self.mass+vy*yaw_rate
+        v_dot_y=(longitudinal_tire_force_front*np.sin(steering_angle)+front_lateral_force*np.cos(steering_angle)+rear_lateral_force)/self.mass-vx*yaw_rate
+        yaw_acceleration=(self.COG_to_front_axis*(longitudinal_tire_force_front*np.sin(steering_angle)+front_lateral_force*np.cos(steering_angle))-self.COG_to_rear_axis*rear_lateral_force)/self.yaw_moment_of_inertia
         
         
         x_dot=vx*np.cos(yaw)-vy*np.sin(yaw)
