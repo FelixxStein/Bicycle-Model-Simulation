@@ -7,12 +7,12 @@ from basic_drive_controller import basic_drive_controller
 import pandas as pd
 
 #convert csv to coordinates
-spielberg=csv_to_coordinates("Spielberg.csv")
+spielberg=csv_to_coordinates("Hockenheim.csv")
 path=spielberg.get_midline()
 borderleft=spielberg.get_border_left()
 borderright=spielberg.get_border_right()
 #create car
-car=vehicle.dynamic_vehicle(starting_x=path[0][0], starting_y=path[0][1])
+car=vehicle.dynamic_vehicle(starting_x=path[0][0], starting_y=path[0][1], max_acceleration=6.5, max_brake=13)
 car.set_starting_angle(path)
 
 ##controller 
