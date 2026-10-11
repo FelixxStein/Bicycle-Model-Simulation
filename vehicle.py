@@ -106,7 +106,8 @@ class dynamic_vehicle(vehicle):
              starting_yaw=0,  
              mass=800,
              COG_to_front_axis=2, 
-             COG_to_rear_axis=1.5,       
+             COG_to_rear_axis=1.5,
+             COG_height=0.3,   
              yaw_moment_of_inertia=1000,
              front_cornering_stiffness=180000,
              rear_cornering_stiffness=230000,  
@@ -152,6 +153,7 @@ class dynamic_vehicle(vehicle):
         self.relaxation_time=relaxation_time
         self.blend_speed_high=blend_speed_high
         self.blend_speed_low=blend_speed_low
+        self.COG_height=COG_height
         
     def friction_circle(self, acceleration,lateral_force_front,lateral_force_rear, front_axle_load,rear_axle_load):
         longitudinal_force_required=self.mass*acceleration
@@ -181,11 +183,15 @@ class dynamic_vehicle(vehicle):
         yaw_acceleration=(yaw_rate_target-yaw_rate)/self.relaxation_time
         return vx_dot, vy_dot, yaw_acceleration
 
-            
+    def calculate_axle_load(self,down_force,load_transfer):
+        front_axle_load=np.maximum(self.vertical_force_front+self.aero_balance_front*down_force-load_transfer,0)
+        rear_axle_load=np.maximum((self.vertical_force_rear+(1-self.aero_balance_front)*down_force+load_transfer),0)
+        return front_axle_load, rear_axle_load
+
 
     def derivative_function_dynamic(self,vx,vy,yaw_rate,acceleration,steering_angle,down_force,drag_force,rolling_force): 
-        front_axle_load=self.vertical_force_front+self.aero_balance_front*down_force
-        rear_axle_load=self.vertical_force_rear+(1-self.aero_balance_front)*down_force
+        load_transfer=(self.mass*acceleration*self.COG_height)/self.wheel_base
+        front_axle_load, rear_axle_load=self.calculate_axle_load(down_force,load_transfer)
         peak_factor_front=self.friction_coefficient_front*front_axle_load
         peak_factor_rear=self.friction_coefficient_rear*rear_axle_load
         front_slip_angle=steering_angle-np.arctan((vy+self.COG_to_front_axis*yaw_rate)/np.maximum(0.5,vx))
