@@ -229,9 +229,29 @@ class dynamic_vehicle(vehicle):
     def get_velocity(self):
         return np.sqrt(self.state[3]**2+self.state[4]**2)
 
+    def get_vx(self):
+        return self.state[3]
+
     def apply_state_limits(self,state):
         vx=state[3]
         vx=np.maximum(0,vx)
         return np.array([state[0],state[1],state[2],vx,state[4],state[5]])
 
+    def get_friction_coefficient_front(self):
+        return self.friction_coefficient_front
+
+    def get_friction_coefficient_rear(self):
+        return self.friction_coefficient_rear
+
+    def get_downforce_factor(self):
+        return self.downforce_factor
+
+    def get_mass(self):
+        return self.mass
+
+    def get_max_acceleration(self):
+        return self.max_acceleration
+
+    def get_yaw_rate(self):
+        return self.state[5]
 
