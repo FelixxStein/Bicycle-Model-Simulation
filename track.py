@@ -55,7 +55,7 @@ class track:
                 turn-=2*np.pi
             elif turn<-np.pi:
                 turn+=2*np.pi
-            distance=(cumulative_point_distance[b]-cumulative_point_distance[a])%self.track_length
+            distance=(self.forward_distance(a,b))%self.track_length
             curvature_segment=turn/distance
             curvature.append(curvature_segment)
         self.curvature=np.array(curvature)
@@ -64,25 +64,41 @@ class track:
         self.border_left=self.midline+w_tr_left_column*self.normal
         
 
-
-    def get_cumulative_point_distance(self):
-        pass
-
-    def get_curvature_per_pathpoint(self):
-        pass
-
     def get_closest_index(self, starting_index, position):
-        closest_index=self.last_closest_index
-        for i in range(self.last_closest_index, min(self.last_closest_index+40, len(self.midline))):
+        closest_index=starting_index
+        for i in range(starting_index, min(starting_index+40, len(self.midline))):
             if np.sqrt(np.sum((position - self.midline[i])**2))<np.sqrt(np.sum((position - self.midline[closest_index])**2)):
                 closest_index=i
-        self.last_closest_index=closest_index
+        return closest_index
 
-    def projection(self, position_index):
-        pass
+    def forward_distance(self, a, b):
+        return self.cumulative_point_distance[b]-self.cumulative_point_distance[a]
 
-    def on_track(self,position):
-        pass
+    def locate(self,position, start_index,margin=1):
+        index=self.get_closest_index(position,start_index)
+        difference=position-self.midline[index]
+        along=np.sum(difference*self.tangent[index], axis=-1)
+        index=np.where(along<0, index-1, index)
+        index=(index)%len(self.midline)
+        difference=position-self.midline[index]
+        along=np.sum(difference*self.tangent[index], axis=-1)
+        lateral=np.sum(difference*self.normal[index])
+        progress=self.cumulative_point_distance[index]+along
+        ontrack=self.on_track(index,lateral,margin)
+        return index, progress,lateral,ontrack
+
+    def on_track(self,index,lateral, margin):
+        if -(self.w_tr_right_m[index]-margin)<= lateral and self.w_tr_left_m[index]-margin>=lateral:
+            return True
+        else:
+            return False
+
+    def progress_difference(self,progress_start, progress_end):
+        progress=progress_end-progress_start
+        progress=np.where(progress<-self.track_length/2,progress+self.track_length, progress)
+        progress=np.where(progress>self.track_length/2,progress-self.track_length, progress)
+        return progress
+
 
 
     def get_midline(self):
