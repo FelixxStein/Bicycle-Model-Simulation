@@ -1,17 +1,17 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import vehicle
-from csv_to_coordinates import csv_to_coordinates
+from track import track
 import matplotlib.pyplot as plt
 from basic_drive_controller import basic_drive_controller
 import pandas as pd
 from plot import plot
 
 #convert csv to coordinates
-spielberg=csv_to_coordinates("Hockenheim.csv")
-path=spielberg.get_midline()
-borderleft=spielberg.get_border_left()
-borderright=spielberg.get_border_right()
+Track=track("Hockenheim.csv")
+path=Track.get_midline()
+borderleft=Track.get_border_left()
+borderright=Track.get_border_right()
 #create car
 car=vehicle.dynamic_vehicle(starting_x=path[0][0], starting_y=path[0][1], max_acceleration=8)
 car.set_starting_angle(path)

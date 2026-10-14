@@ -40,8 +40,6 @@ class PID_speed_controller:
         
         dist_accumulated=0
         for i in range(0,len(self.path)-2):
-            dist_accumulated=dist_accumulated+self.calculate_distance(self.path[i],self.path[i+1])
-            self.cumulative_point_distance.append(dist_accumulated)
             f=self.calculate_distance(self.path[i],self.path[i+1])
             g=self.calculate_distance(self.path[i+1],self.path[i+2])
             h=self.calculate_distance(self.path[i],self.path[i+2])
@@ -77,12 +75,6 @@ class PID_speed_controller:
     def calculate_distance(self,vek2, vek1):
         return np.sqrt(np.sum((vek2 - vek1)**2))
 
-    def get_closest_index(self, position):
-        closest_index=self.last_closest_index
-        for i in range(self.last_closest_index, min(self.last_closest_index+40, len(self.path))):
-            if self.calculate_distance(position, self.path[i])<self.calculate_distance(position, self.path[closest_index]):
-                closest_index=i
-        self.last_closest_index=closest_index
 
     def calculate_min_v_allowed(self):
         v_allowed_min=self.max_speed

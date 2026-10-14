@@ -14,12 +14,6 @@ class pure_pursuit_controller:
         ld=self.lookahead_gain*abs(velocity)+self.lookahead_base
         return min(max(ld,self.lookahead_min),self.lookahead_max)
 
-    def find_closest_index(self, car_position):
-        closest_index=self.last_closest_index
-        for i in range(self.last_closest_index, min(self.last_closest_index+40, len(self.path))):
-            if np.sqrt(np.sum((car_position - self.path[i])**2))<np.sqrt(np.sum((car_position - self.path[closest_index])**2)):
-                closest_index=i
-        self.last_closest_index=closest_index
 
     def find_next_waypoint(self, position,vehicle_angle,lookahead):
         distance=0
