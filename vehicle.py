@@ -20,20 +20,28 @@ class vehicle():
         self.max_acceleration=max_acceleration
         self.max_brake=max_brake
 
+    def get_max_acceleration(self):
+        return self.max_acceleration
+
     def get_position(self):
-        return np.array([self.state[0], self.state[1]])
+        return self.state[...,0:2]
+
+    def calculate_new_state(self,state,control_inputs,delta_t):
+        copy_control_inputs=control_inputs.copy()
+        copy_control_inputs[...,0]=self.update_steering_angle(copy_control_inputs[...,0])
+        copy_control_inputs[...,1]=self.update_acceleration(copy_control_inputs[...,1])
+        state=integrator(self.derivative_function,state,copy_control_inputs, delta_t)
+        state=self.apply_state_limits(state)
+        return state
+
 
     def time_step(self,control_inputs, delta_t):
-        copy_control_inputs=control_inputs.copy()
-        copy_control_inputs[0]=self.update_steering_angle(copy_control_inputs[0])
-        copy_control_inputs[1]=self.update_acceleration(copy_control_inputs[1])
-        state=integrator(self.derivative_function,self.state,copy_control_inputs, delta_t)
-        state=self.apply_state_limits(state)
+        state=self.calculate_new_state(self.state,control_inputs,delta_t)
         self.state=state
 
 
     def get_yaw(self):
-        return self.state[2]
+        return self.state[...,2]
     
     def get_wheelbase(self):
          return self.wheel_base
@@ -57,7 +65,7 @@ class vehicle():
     
 
 
-    
+#doesnt work with current controller anymore, will update it or delete it, currently working on real progress though
 class kinematic_vehicle(vehicle):
     def __init__(self,
                 max_speed=100, 
@@ -69,29 +77,29 @@ class kinematic_vehicle(vehicle):
                 wheel_base=2, 
                 max_acceleration=14, 
                 max_brake=35):
-        state=np.array([starting_x,starting_y,starting_yaw,starting_velocity])
+        state=np.stack([starting_x,starting_y,starting_yaw,starting_velocity],axis=-1, dtype=float)
         super().__init__(state,max_speed,wheel_base,max_acceleration,max_brake)
         self.steering_angle = starting_steering_angle
 
     def derivative_function(self, state, control_inputs):
-        yaw=state[2]
-        v=state[3]
-        steering_angle=control_inputs[0]
-        acceleration=control_inputs[1]
+        yaw=state[...,2]
+        v=state[...,3]
+        steering_angle=control_inputs[...,0]
+        acceleration=control_inputs[...,1]
         delta_x = v*np.cos(yaw)
         delta_y = v*np.sin(yaw)
         delta_v = acceleration
         yaw_rate=(v*np.tan(steering_angle))/self.wheel_base
-        return np.array([delta_x, delta_y, yaw_rate, delta_v])
+        return np.stack([delta_x, delta_y, yaw_rate, delta_v],axis=-1)
 
     def apply_state_limits(self,state):
-            v=state[3]
-            v=np.maximum(0,v)
-            return np.array([state[0],state[1],state[2],v])
+            state_copy=np.copy(state)
+            state_copy[...,3]=np.maximum(0,state[...,3])
+            return state_copy
 
 
     def get_velocity(self):
-        return self.state[3]
+        return self.state[...,3]
 
 
 
@@ -157,12 +165,8 @@ class dynamic_vehicle(vehicle):
         
     def friction_circle(self, acceleration,lateral_force_front,lateral_force_rear, front_axle_load,rear_axle_load):
         longitudinal_force_required=self.mass*acceleration
-        if longitudinal_force_required>0:
-            longitudinal_tire_force_front=0
-            longitudinal_tire_force_rear=longitudinal_force_required
-        else:
-            longitudinal_tire_force_front=self.brake_balance_front*longitudinal_force_required
-            longitudinal_tire_force_rear=(1-self.brake_balance_front)*longitudinal_force_required
+        longitudinal_tire_force_front=np.where(longitudinal_force_required>0,0,self.brake_balance_front*longitudinal_force_required)
+        longitudinal_tire_force_rear=np.where(longitudinal_force_required>0,longitudinal_force_required,(1-self.brake_balance_front)*longitudinal_force_required)
         budget_rear=self.friction_coefficient_rear*rear_axle_load
         budget_front=self.friction_coefficient_front*front_axle_load
         longitudinal_tire_force_rear=np.clip(longitudinal_tire_force_rear,-budget_rear,budget_rear)
@@ -206,12 +210,12 @@ class dynamic_vehicle(vehicle):
         
 
     def derivative_function(self,state, control_inputs):
-            yaw=state[2]
-            vx=state[3]
-            vy=state[4]
-            yaw_rate=state[5]
-            steering_angle=control_inputs[0]
-            acceleration=control_inputs[1]
+            yaw=state[...,2]
+            vx=state[...,3]
+            vy=state[...,4]
+            yaw_rate=state[...,5]
+            steering_angle=control_inputs[...,0]
+            acceleration=control_inputs[...,1]
             down_force=self.downforce_factor*(vx**2)
             drag_force=self.drag_constant*vx*abs(vx)
             rolling_force=self.rolling_resistance_coefficient*(self.mass*constants.GRAVITY+down_force)*np.sign(vx)
@@ -223,19 +227,19 @@ class dynamic_vehicle(vehicle):
             vx_dot=blend_weight*vx_dot_dynamic+(1-blend_weight)*vx_dot_kinematic
             vy_dot=blend_weight*vy_dot_dynamic+(1-blend_weight)*vy_dot_kinematic
             yaw_acceleration=blend_weight*yaw_acceleration_dynamic+(1-blend_weight)*yaw_acceleration_kinematic
-            return np.array([x_dot,y_dot,yaw_rate,vx_dot,vy_dot,yaw_acceleration])
+            return np.stack([x_dot,y_dot,yaw_rate,vx_dot,vy_dot,yaw_acceleration],axis=-1,dtype=float)
             
 
     def get_velocity(self):
-        return np.sqrt(self.state[3]**2+self.state[4]**2)
+        return np.sqrt(self.state[...,3]**2+self.state[...,4]**2)
 
     def get_vx(self):
-        return self.state[3]
+        return self.state[...,3]
 
     def apply_state_limits(self,state):
-        vx=state[3]
-        vx=np.maximum(0,vx)
-        return np.array([state[0],state[1],state[2],vx,state[4],state[5]])
+        copy_state=np.copy(state)
+        copy_state[...,3]=np.maximum(0,state[...,3])
+        return copy_state
 
     def get_friction_coefficient_front(self):
         return self.friction_coefficient_front
@@ -249,9 +253,6 @@ class dynamic_vehicle(vehicle):
     def get_mass(self):
         return self.mass
 
-    def get_max_acceleration(self):
-        return self.max_acceleration
-
     def get_yaw_rate(self):
-        return self.state[5]
+        return self.state[...,5]
 

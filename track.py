@@ -67,10 +67,13 @@ class track:
         
 
     def get_closest_index(self, starting_index, position):
-        closest_index=starting_index
-        for i in range(starting_index-self.lookbefore_closest_index, starting_index+self.lookahead_closest_index):
-            if np.sum((position - self.midline[i%len(self.midline)])**2)<np.sum((position - self.midline[closest_index])**2):
-                closest_index=i%len(self.midline)
+        starting_index=np.array(starting_index)
+        index_array=(starting_index[...,None]+ np.arange(-self.lookbefore_closest_index,self.lookahead_closest_index+1))%len(self.midline)
+        index_points=self.midline[index_array]
+        car_position=position[...,None,:]
+        distances=np.sum((index_points-car_position)**2,axis=-1)
+        closest_index=np.argmin(distances,axis=-1)
+        closest_index=(closest_index+starting_index-self.lookbefore_closest_index)%len(self.midline)
         return closest_index
 
     def forward_distance(self, a, b):
@@ -90,10 +93,8 @@ class track:
         return index, progress,lateral,ontrack
 
     def on_track(self,index,lateral, margin):
-        if -(self.w_tr_right_m[index]-margin)<= lateral and self.w_tr_left_m[index]-margin>=lateral:
-            return True
-        else:
-            return False
+        return (-(self.w_tr_right_m[index]-margin)<= lateral) & (self.w_tr_left_m[index]-margin>=lateral)
+
 
     def progress_difference(self,progress_start, progress_end):
         progress=progress_end-progress_start
