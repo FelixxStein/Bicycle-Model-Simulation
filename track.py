@@ -112,3 +112,12 @@ class track:
     def get_border_right(self):
         return self.border_right
 
+    def get_cumulative_point_distance(self):
+        return self.cumulative_point_distance
+
+    def get_curvature(self):
+        return self.curvature
+
+    def get_track_length(self):
+        return self.track_length
+
