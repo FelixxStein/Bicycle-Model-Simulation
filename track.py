@@ -3,10 +3,12 @@ import pandas as pd
 import numpy as np
 
 class track:
-    def __init__(self,csv_racetrack, curvature_lookahead_distance=2):
+    def __init__(self,csv_racetrack, curvature_lookahead_distance=2,lookahead_closest_index=40,lookbefore_closest_index=5):
         REPO_ROOT = Path(__file__).resolve().parent
         csv_path = REPO_ROOT /"data" /"racetracks" /csv_racetrack
         self.df = pd.read_csv(csv_path)
+        self.lookahead_closest_index=lookahead_closest_index
+        self.lookbefore_closest_index=lookbefore_closest_index
         #calculate midline
         x=self.df.iloc[:, 0].tolist()
         y=self.df.iloc[:, 1].tolist()
@@ -38,7 +40,7 @@ class track:
             normal.append(RR@tangent_segment)
             angle_segment = np.arctan2(tangent_segment[1],tangent_segment[0])
             angle.append(angle_segment)
-            dist_accumulated+=np.sum(segment**2)
+            dist_accumulated+=np.sqrt(np.sum(segment**2))
 
         self.normal=np.array(normal)
         self.tangent=np.array(tangent)
@@ -66,23 +68,23 @@ class track:
 
     def get_closest_index(self, starting_index, position):
         closest_index=starting_index
-        for i in range(starting_index, min(starting_index+40, len(self.midline))):
-            if np.sqrt(np.sum((position - self.midline[i])**2))<np.sqrt(np.sum((position - self.midline[closest_index])**2)):
-                closest_index=i
+        for i in range(starting_index-self.lookbefore_closest_index, starting_index+self.lookahead_closest_index):
+            if np.sum((position - self.midline[i%len(self.midline)])**2)<np.sum((position - self.midline[closest_index])**2):
+                closest_index=i%len(self.midline)
         return closest_index
 
     def forward_distance(self, a, b):
-        return self.cumulative_point_distance[b]-self.cumulative_point_distance[a]
+        return (self.cumulative_point_distance[b]-self.cumulative_point_distance[a])%self.track_length
 
     def locate(self,position, start_index,margin=1):
-        index=self.get_closest_index(position,start_index)
+        index=self.get_closest_index(start_index, position)
         difference=position-self.midline[index]
         along=np.sum(difference*self.tangent[index], axis=-1)
         index=np.where(along<0, index-1, index)
         index=(index)%len(self.midline)
         difference=position-self.midline[index]
         along=np.sum(difference*self.tangent[index], axis=-1)
-        lateral=np.sum(difference*self.normal[index])
+        lateral=np.sum(difference*self.normal[index], axis=-1)
         progress=self.cumulative_point_distance[index]+along
         ontrack=self.on_track(index,lateral,margin)
         return index, progress,lateral,ontrack
