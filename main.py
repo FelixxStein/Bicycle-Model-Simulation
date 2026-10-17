@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from basic_drive_controller import basic_drive_controller
 import pandas as pd
 from plot import plot
+from mppi_controller.mppi_controller import mppi_controller
 
 #convert csv to coordinates
 Track=track("Hockenheim.csv")
@@ -13,7 +14,7 @@ path=Track.get_midline()
 borderleft=Track.get_border_left()
 borderright=Track.get_border_right()
 #create car
-car=vehicle.dynamic_vehicle(starting_x=path[0][0], starting_y=path[0][1], max_acceleration=8)
+car=vehicle.dynamic_vehicle(starting_x=path[0][0], starting_y=path[0][1], starting_vx=30)
 car.set_starting_angle(path)
 
 ##controller 
@@ -25,6 +26,7 @@ r=0
 cartrace=[]
 cartrace.append(car.get_position())
 velocity_list=[car.get_velocity()]
+'''
 index=0
 total_progress=0
 progress_old=0
@@ -48,10 +50,28 @@ while True:
 
 
 cartrace=np.array(cartrace)
+'''
+
+#Mppi controller test:
+Mppi=mppi_controller(car,Track)
+start=car.state.copy()
+V_shape=np.zeros((3,40,2))
+V_shape[0,...,0]=0
+V_shape[0,...,1]=2
+V_shape[1,...,0]=0
+V_shape[1,...,1]=0.1
+V_shape[2,...,0]=0.35
+V_shape[2,...,1]=0
+result=Mppi.rollout(start,V_shape_array=V_shape)
+cost=Mppi.cost_function(result,0,0)
+
+print(cost)
+
 
 Plot=plot(borderleft, borderright)
-Plot.plot_speed(cartrace,velocity_list)
-Plot.show()
+
+#Plot.plot_speed(cartrace,velocity_list)
+#Plot.show()
 
 print("Time:", len(cartrace)*0.01)
 
