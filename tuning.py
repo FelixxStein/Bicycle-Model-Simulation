@@ -2,6 +2,9 @@ import vehicle
 from track import track 
 from mppi_controller.mppi_controller import mppi_controller
 import numpy as np
+import csv
+import sys
+
 class tuning:
     def __init__(self,
                  number_plans=1000,
@@ -12,8 +15,10 @@ class tuning:
                  seeds=[42,1900],
                  K=20,
                  k=5,
-                 max_steps=2000):
+                 max_steps=2000,
+                 csv_name="tuning_log.csv"):
         self.max_steps=max_steps
+        self.csv_name=csv_name
         self.K=K
         self.k=k
         self.rng=np.random.default_rng(seed)
@@ -33,6 +38,7 @@ class tuning:
         self.starting_values=self.rng.uniform(self.z_min,self.z_max)
         self.best_score_so_far=100000
         self.variables_best_score_so_far=[]
+        self.generation=0
 
     def run_lap(self, params, seed):
         temperature=params[0]
@@ -95,6 +101,7 @@ class tuning:
             mean_score=0
             for j in self.seeds:
                 reason, total_progress, time, score=self.run_lap(params=draw_real[i,...],seed=j)
+                with open(self.csv_name, 'a', newline='') as f: csv.writer(f).writerow([self.generation, i, j, *draw_real[i], reason, total_progress, time, score])
                 mean_score+=score
             score_set.append(mean_score/len(self.seeds))
 
@@ -108,6 +115,7 @@ class tuning:
             self.best_score_so_far=score_set[scores_sorted[0]]
             variables_best_score_so_far=elite[0].copy()
             self.variables_best_score_so_far=np.where(self.log_array,10**variables_best_score_so_far,variables_best_score_so_far)
+        self.generation+=1
         return np.mean(score_set)
 
 
@@ -120,6 +128,7 @@ class tuning:
             print("score:",mean,"Mean:",current_mean)
             
 if __name__ == "__main__":
-    Tuning=tuning(K=4,k=2,max_steps=2000)
-    Tuning.run(1)
+    terminal=int(sys.argv[1])
+    Tuning=tuning(K=12,k=4,max_steps=20000,csv_name="tuning_log_" + str(terminal) + ".csv", seed=terminal)
+    Tuning.run(50)
         
