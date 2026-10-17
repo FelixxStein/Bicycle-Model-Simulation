@@ -1,9 +1,10 @@
 from pathlib import Path
 import pandas as pd
 import numpy as np
+import constants
 
 class track:
-    def __init__(self,csv_racetrack, curvature_lookahead_distance=2,lookahead_closest_index=40,lookbefore_closest_index=5):
+    def __init__(self,csv_racetrack,friction_coefficient,downforce_factor, mass, v_max, profile_grip_factor=0.9, curvature_lookahead_distance=2,lookahead_closest_index=40,lookbefore_closest_index=5):
         REPO_ROOT = Path(__file__).resolve().parent
         csv_path = REPO_ROOT /"data" /"racetracks" /csv_racetrack
         self.df = pd.read_csv(csv_path)
@@ -64,6 +65,21 @@ class track:
 
         self.border_right=self.midline-w_tr_right_column*self.normal
         self.border_left=self.midline+w_tr_left_column*self.normal
+
+
+        #calculate corner speed per point
+        v_allowed=np.zeros((len(self.midline)))
+        v_allowed[-1]=100
+        friction_factor=friction_coefficient*profile_grip_factor
+        planner_break=friction_factor*constants.GRAVITY
+        denom=np.maximum((np.abs(curvature)-(friction_factor*downforce_factor/mass)),1e-5)
+        v_corner=np.minimum(np.sqrt(friction_factor*constants.GRAVITY/denom),v_max)
+        for i in range(2*len(self.midline)-1,-1,-1):
+            v_allowed[i%len(self.midline)]=np.minimum(v_corner[i%len(self.midline)],np.sqrt(v_allowed[(i+1)%len(self.midline)]**2+2*planner_break*self.forward_distance(i%len(self.midline), (i+1)%len(self.midline))))
+
+        self.v_allowed=np.array(v_allowed)
+            
+
         
 
     def get_closest_index(self, starting_index, position):

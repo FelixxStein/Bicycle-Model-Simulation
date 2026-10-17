@@ -7,15 +7,19 @@ from basic_drive_controller import basic_drive_controller
 import pandas as pd
 from plot import plot
 from mppi_controller.mppi_controller import mppi_controller
-
+#create car
+car=vehicle.dynamic_vehicle()
+friction_coefficient=car.get_min_friction_coefficient()
+downforce_factor=car.get_downforce_factor()
+mass=car.get_mass()
+v_max=car.get_max_speed()
 #convert csv to coordinates
-Track=track("Hockenheim.csv")
+Track=track("Hockenheim.csv",friction_coefficient, downforce_factor, mass, v_max)
 path=Track.get_midline()
 borderleft=Track.get_border_left()
 borderright=Track.get_border_right()
-#create car
-car=vehicle.dynamic_vehicle(starting_x=path[0][0], starting_y=path[0][1], starting_vx=30)
 car.set_starting_angle(path)
+car.set_starting_position(path)
 
 ##controller 
 BDC=basic_drive_controller.basic_drive_controller(Track, car.get_max_brake(), car.get_max_acceleration(), car.get_wheelbase(),car.get_max_speed(), car.get_friction_coefficient_front(), car.get_friction_coefficient_rear(),car.get_downforce_factor(), car.get_mass())
@@ -58,9 +62,10 @@ index=0
 total_progress=0
 progress_old=0
 r=0
-s=5
+s=Mppi.get_substep()
+stuck=0
 while True:
-
+    velocity=car.get_velocity()
     index, progress,lateral,ontrack=Track.locate(car.get_position(),index)
     total_progress+=Track.progress_difference(progress_old, progress)
     progress_old=progress
@@ -70,6 +75,9 @@ while True:
     if s==Mppi.get_substep():
         control_inputs= Mppi.compute_control(car.get_state(),progress,index)
         s=0
+    if velocity<1: stuck+=1
+    else: stuck=0
+    if stuck>200: break
     s+=1
     car.time_step(control_inputs,0.01)
     cartrace.append(car.get_position())

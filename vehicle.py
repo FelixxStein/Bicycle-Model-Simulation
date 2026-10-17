@@ -60,6 +60,10 @@ class vehicle():
         vector=racetrack[1]-racetrack[0]
         self.state[2]=np.atan2(vector[1],vector[0])
 
+    def set_starting_position(self,racetrack):
+        self.state[0]=racetrack[0][0]
+        self.state[1]=racetrack[0][1]
+
     def update_acceleration(self, acceleration):
         return np.clip(acceleration,-self.max_brake,self.max_acceleration)
 
@@ -263,3 +267,5 @@ class dynamic_vehicle(vehicle):
     def get_yaw_rate(self):
         return self.state[...,5]
 
+    def get_min_friction_coefficient(self):
+        return min(self.friction_coefficient_front, self.friction_coefficient_rear)
