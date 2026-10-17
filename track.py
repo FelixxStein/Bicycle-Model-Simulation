@@ -95,7 +95,7 @@ class track:
     def forward_distance(self, a, b):
         return (self.cumulative_point_distance[b]-self.cumulative_point_distance[a])%self.track_length
 
-    def locate(self,position, start_index,margin=1):
+    def locate(self,position, start_index,margin=0.5):
         index=self.get_closest_index(start_index, position)
         difference=position-self.midline[index]
         along=np.sum(difference*self.tangent[index], axis=-1)

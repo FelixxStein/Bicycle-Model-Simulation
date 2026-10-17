@@ -7,16 +7,16 @@ class mppi_controller():
                 number_control_steps=60,
                 physics_time_step=0.01,
                 substeps=5,
-                sd_steering=0.15,
                 sd_acceleration=2,
                 temperature=0.5,
                 starting_plan=None, 
                 seed=42,
-                ao=9,
+                ao=70,
                 c_under=1,
                 c_over=5,
                 min_sd_steering=0.003,
-                max_sd_steering=0.2):
+                max_sd_steering=0.2,
+                crash_penalty=1000):
         self.c_under=c_under
         self.c_over=c_over
         self.rng=np.random.default_rng(seed)
@@ -26,7 +26,6 @@ class mppi_controller():
         self.number_control_steps=number_control_steps
         self.physics_time_step=physics_time_step
         self.substeps=substeps
-        self.sd_steering=sd_steering
         self.sd_acceleration=sd_acceleration
         if starting_plan is None:
             self.best_current_plan=np.zeros((number_control_steps,2))
@@ -40,6 +39,7 @@ class mppi_controller():
         self.min_sd_steering=min_sd_steering
         self.max_sd_steering=max_sd_steering
         self.v_allowed=self.track.get_v_allowed()
+        self.crash_penalty=crash_penalty
 
     def rollout(self,state,V_shape_array):
         n, t, inputs=np.shape(V_shape_array)
@@ -66,7 +66,7 @@ class mppi_controller():
             off_track_arr=np.where((ontrack==False)|(off_track_arr==True),True,False)
         v_end=np.linalg.norm(result[...,-1,3:5],axis=-1)
         v_allowed=self.v_allowed[index]
-        cost=np.where(off_track_arr==True,-progress_arr+1000,-progress_arr)-self.c_under*np.minimum(v_end, v_allowed)+self.c_over*np.maximum(0,v_end-v_allowed)
+        cost=np.where(off_track_arr==True,-progress_arr+self.crash_penalty,-progress_arr)-self.c_under*np.minimum(v_end, v_allowed)+self.c_over*np.maximum(0,v_end-v_allowed)
         self.crashrate.append(np.sum(off_track_arr)/len(off_track_arr))
         return cost
 
