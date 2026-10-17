@@ -138,3 +138,6 @@ class track:
     def get_track_length(self):
         return self.track_length
 
+    def get_v_allowed(self):
+        return self.v_allowed
+
