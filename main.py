@@ -41,7 +41,7 @@ while True:
     if total_progress>Track.get_track_length():break
     if r>50000 or ontrack==False: break
     r+=1
-    acceleration, steering_angle = BDC.compute_control(position,index, car.get_velocity(), car.get_vx(), car.get_yaw(), car.get_yaw_rate(), 0.01)
+    steering_angle, acceleration = BDC.compute_control(position,index, car.get_velocity(), car.get_vx(), car.get_yaw(), car.get_yaw_rate(), 0.01)
     control_inputs=np.array([steering_angle,acceleration])
     car.time_step(control_inputs,0.01)
     cartrace.append(car.get_position())
@@ -54,24 +54,36 @@ cartrace=np.array(cartrace)
 
 #Mppi controller test:
 Mppi=mppi_controller(car,Track)
-start=car.state.copy()
-V_shape=np.zeros((3,40,2))
-V_shape[0,...,0]=0
-V_shape[0,...,1]=2
-V_shape[1,...,0]=0
-V_shape[1,...,1]=0.1
-V_shape[2,...,0]=0.35
-V_shape[2,...,1]=0
-result=Mppi.rollout(start,V_shape_array=V_shape)
-cost=Mppi.cost_function(result,0,0)
+index=0
+total_progress=0
+progress_old=0
+r=0
+s=5
+while True:
 
-print(cost)
+    index, progress,lateral,ontrack=Track.locate(car.get_position(),index)
+    total_progress+=Track.progress_difference(progress_old, progress)
+    progress_old=progress
+    if total_progress>Track.get_track_length():break
+    if r>10000 or ontrack==False: break
+    r+=1
+    if s==5:
+        control_inputs= Mppi.compute_control(car.get_state(),progress,index)
+        s=0
+    s+=1
+    car.time_step(control_inputs,0.01)
+    cartrace.append(car.get_position())
+    velocity_list.append(car.get_velocity())
+
+
+
+cartrace=np.array(cartrace)
 
 
 Plot=plot(borderleft, borderright)
 
-#Plot.plot_speed(cartrace,velocity_list)
-#Plot.show()
+Plot.plot_speed(cartrace,velocity_list)
+Plot.show()
 
 print("Time:", len(cartrace)*0.01)
 
