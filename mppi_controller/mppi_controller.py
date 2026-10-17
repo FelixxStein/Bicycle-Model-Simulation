@@ -10,7 +10,12 @@ class mppi_controller():
                 sd_steering=0.15,
                 sd_acceleration=2,
                 temperature=0.5,
-                starting_plan=None):
+                starting_plan=None, 
+                seed=42,
+                ao=4,
+                min_sd_steering=0.003,
+                max_sd_steering=0.2):
+        self.rng=np.random.default_rng(seed)
         self.car=car
         self.track=track
         self.number_plans=number_plans
@@ -25,6 +30,11 @@ class mppi_controller():
         else:
             self.best_current_plan=starting_plan.copy()
         self.temperature=temperature
+        self.crashrate=[]
+        self.effective_number_of_plans=[]
+        self.ao=ao
+        self.min_sd_steering=min_sd_steering
+        self.max_sd_steering=max_sd_steering
 
     def rollout(self,state,V_shape_array):
         n, t, inputs=np.shape(V_shape_array)
@@ -50,6 +60,7 @@ class mppi_controller():
             last_progress=progress
             off_track_arr=np.where((ontrack==False)|(off_track_arr==True),True,False)
         cost=np.where(off_track_arr==True,-progress_arr+1000,-progress_arr)
+        self.crashrate.append(np.sum(off_track_arr)/len(off_track_arr))
         return cost
 
     def compute_weights(self,costs):
@@ -60,8 +71,10 @@ class mppi_controller():
         
     def compute_control(self,state, progress, index):
         noise=np.zeros((self.number_plans,self.number_control_steps,2))
-        steering_noise=np.random.normal(0, self.sd_steering,(self.number_plans,self.number_control_steps))
-        acceleration_noise=np.random.normal(0,self.sd_acceleration,(self.number_plans,self.number_control_steps))
+        sd_steering=(self.ao*self.car.get_wheelbase())/(self.car.get_velocity()**2)
+        sd_steering=np.clip(sd_steering,self.min_sd_steering,self.max_sd_steering)
+        steering_noise=self.rng.normal(0, sd_steering,(self.number_plans,self.number_control_steps))
+        acceleration_noise=self.rng.normal(0,self.sd_acceleration,(self.number_plans,self.number_control_steps))
         noise[...,0]+=steering_noise
         noise[...,1]+=acceleration_noise
         v_shape_array=self.best_current_plan+noise
@@ -70,9 +83,13 @@ class mppi_controller():
         result=self.rollout(state,v_shape_array)
         cost=self.cost_function(result,progress,index)
         weights=self.compute_weights(cost)
+        self.effective_number_of_plans.append(1/np.sum(weights**2))
         weights=weights[...,None,None]
         self.best_current_plan=np.sum(v_shape_array*weights,axis=0)
         car_controls=self.best_current_plan[0]
         self.best_current_plan=np.roll(self.best_current_plan,-1,0)
         self.best_current_plan[-1]=self.best_current_plan[-2]
         return car_controls
+
+    def get_substep(self):
+        return self.substeps

@@ -65,9 +65,9 @@ while True:
     total_progress+=Track.progress_difference(progress_old, progress)
     progress_old=progress
     if total_progress>Track.get_track_length():break
-    if r>10000 or ontrack==False: break
+    if r>20000 or ontrack==False: break
     r+=1
-    if s==5:
+    if s==Mppi.get_substep():
         control_inputs= Mppi.compute_control(car.get_state(),progress,index)
         s=0
     s+=1
