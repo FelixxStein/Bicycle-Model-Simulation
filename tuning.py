@@ -4,7 +4,7 @@ from mppi_controller.mppi_controller import mppi_controller
 import numpy as np
 import csv
 import sys
-
+from multiprocessing import Pool
 class tuning:
     def __init__(self,
                  number_plans=1000,
@@ -16,7 +16,9 @@ class tuning:
                  K=20,
                  k=5,
                  max_steps=20000,
-                 csv_name="tuning_log.csv"):
+                 csv_name="tuning_log.csv",
+                 processes=5):
+        self.processes=processes
         self.max_steps=max_steps
         self.csv_name=csv_name
         self.K=K
@@ -40,7 +42,51 @@ class tuning:
         self.variables_best_score_so_far=[]
         self.generation=0
 
-    def run_lap(self, params, seed):
+    
+
+    def one_gen(self):
+        score_set=[]
+        draw=self.rng.normal(self.mean_value_array,self.o, size=(self.K,len(self.mean_value_array)))
+        draw=np.clip(draw,self.z_min,self.z_max)
+        draw_real=np.where(self.log_array,10**draw,draw)
+        jobs=[]
+        for i in range(self.K):
+            for j in self.seeds:
+                jobs.append((draw_real[i,...],j,self.csv_racetrack,self.number_plans,self.physics_time_step,self.substeps,self.max_steps))
+        with Pool(processes=self.processes) as pool: solution=pool.starmap(run_lap,jobs,chunksize=1)
+        n=0
+        for element in solution:
+            set_index=n//len(self.seeds)
+            seed=self.seeds[n%len(self.seeds)]
+            with open(self.csv_name, 'a', newline='') as f: csv.writer(f).writerow([self.generation, set_index, seed, *draw_real[set_index], element[0], element[1], element[2], element[3]])
+            n+=1
+        score_set=np.array(solution)
+        score_set=score_set[...,3]
+        score_set=score_set.reshape(self.K, len(self.seeds))
+        score_set=score_set.mean(axis=1)
+        scores_sorted=np.argsort(score_set)
+        elite=draw[scores_sorted,...]
+        elite=elite[0:self.k,...]
+        self.mean_value_array=np.mean(elite,axis=0)
+        self.o=np.std(elite,axis=0)
+        self.o=np.maximum(self.o,self.o_min)
+        if self.best_score_so_far>score_set[scores_sorted[0]]:
+            self.best_score_so_far=score_set[scores_sorted[0]]
+            variables_best_score_so_far=elite[0].copy()
+            self.variables_best_score_so_far=np.where(self.log_array,10**variables_best_score_so_far,variables_best_score_so_far)
+        self.generation+=1
+        return np.mean(score_set)
+
+
+
+
+    def run(self,generations):
+        for i in range(generations):
+            mean=self.one_gen()
+            current_mean=np.where(self.log_array,10**self.mean_value_array,self.mean_value_array)
+            print("score:",mean,"Mean:",current_mean)
+
+def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps,max_steps):
         temperature=params[0]
         ao=params[1]
         sd_acceleration=params[2]
@@ -49,8 +95,8 @@ class tuning:
         profile_grip_factor=params[5]
         number_control_steps=int(round(params[6]))
         car=vehicle.dynamic_vehicle()
-        Track=track(self.csv_racetrack,car.get_min_friction_coefficient(),car.get_downforce_factor(),car.get_mass(),car.get_max_speed(),profile_grip_factor)
-        mppi=mppi_controller(car,Track,self.number_plans,number_control_steps,self.physics_time_step,self.substeps,sd_acceleration,temperature,None,seed,ao,c_under,c_over)
+        Track=track(csv_racetrack,car.get_min_friction_coefficient(),car.get_downforce_factor(),car.get_mass(),car.get_max_speed(),profile_grip_factor)
+        mppi=mppi_controller(car,Track,number_plans,number_control_steps,physics_time_step,substeps,sd_acceleration,temperature,None,seed,ao,c_under,c_over)
         index=0
         car.set_starting_position(Track.get_midline())
         car.set_starting_angle(Track.get_midline())
@@ -78,7 +124,7 @@ class tuning:
             if total_progress>Track.get_track_length():
                 reason=1
                 break
-            if r>self.max_steps:
+            if r>max_steps:
                 reason=4
                 break
             if ontrack==False:
@@ -97,43 +143,9 @@ class tuning:
             score=((Track.get_track_length()-total_progress)/33)+200
         return reason, total_progress, time, score
 
-    def one_gen(self):
-        score_set=[]
-        draw=self.rng.normal(self.mean_value_array,self.o, size=(self.K,len(self.mean_value_array)))
-        draw=np.clip(draw,self.z_min,self.z_max)
-        draw_real=np.where(self.log_array,10**draw,draw)
-        for i in range(self.K):
-            mean_score=0
-            for j in self.seeds:
-                reason, total_progress, time, score=self.run_lap(params=draw_real[i,...],seed=j)
-                with open(self.csv_name, 'a', newline='') as f: csv.writer(f).writerow([self.generation, i, j, *draw_real[i], reason, total_progress, time, score])
-                mean_score+=score
-            score_set.append(mean_score/len(self.seeds))
 
-        scores_sorted=np.argsort(score_set)
-        elite=draw[scores_sorted,...]
-        elite=elite[0:self.k,...]
-        self.mean_value_array=np.mean(elite,axis=0)
-        self.o=np.std(elite,axis=0)
-        self.o=np.maximum(self.o,self.o_min)
-        if self.best_score_so_far>score_set[scores_sorted[0]]:
-            self.best_score_so_far=score_set[scores_sorted[0]]
-            variables_best_score_so_far=elite[0].copy()
-            self.variables_best_score_so_far=np.where(self.log_array,10**variables_best_score_so_far,variables_best_score_so_far)
-        self.generation+=1
-        return np.mean(score_set)
-
-
-
-
-    def run(self,generations):
-        for i in range(generations):
-            mean=self.one_gen()
-            current_mean=np.where(self.log_array,10**self.mean_value_array,self.mean_value_array)
-            print("score:",mean,"Mean:",current_mean)
-            
 if __name__ == "__main__":
     terminal=int(sys.argv[1])
-    Tuning=tuning(K=12,k=4,max_steps=20000,csv_name="tuning_log_" + str(terminal) + ".csv", seed=terminal)
-    Tuning.run(1)
+    Tuning=tuning(K=12,k=4,max_steps=20000,csv_name="tuning_log_" + str(terminal) + ".csv", seed=terminal, processes=6)
+    Tuning.run(50)
         
