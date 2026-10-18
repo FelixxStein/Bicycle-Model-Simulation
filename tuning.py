@@ -15,7 +15,7 @@ class tuning:
                  seeds=[42,1900],
                  K=20,
                  k=5,
-                 max_steps=2000,
+                 max_steps=20000,
                  csv_name="tuning_log.csv"):
         self.max_steps=max_steps
         self.csv_name=csv_name
@@ -52,6 +52,8 @@ class tuning:
         Track=track(self.csv_racetrack,car.get_min_friction_coefficient(),car.get_downforce_factor(),car.get_mass(),car.get_max_speed(),profile_grip_factor)
         mppi=mppi_controller(car,Track,self.number_plans,number_control_steps,self.physics_time_step,self.substeps,sd_acceleration,temperature,None,seed,ao,c_under,c_over)
         index=0
+        car.set_starting_position(Track.get_midline())
+        car.set_starting_angle(Track.get_midline())
         total_progress=0
         progress_old=0
         r=0
@@ -59,9 +61,18 @@ class tuning:
         stuck=0
         reason=0 #1=lap complete 2=off track 3=stuck 4=time limit
         time=0
+        progress_stuck=0
         while True:
             velocity=car.get_velocity()
             index, progress,lateral,ontrack=Track.locate(car.get_position(),index)
+            if velocity<1:
+                stuck+=1
+            else: 
+                stuck=0
+                progress_stuck=progress
+            if (stuck>200) & (np.isclose(progress,progress_stuck,atol=0.1)):
+                reason=3
+                break
             total_progress+=Track.progress_difference(progress_old, progress)
             progress_old=progress
             if total_progress>Track.get_track_length():
@@ -77,19 +88,13 @@ class tuning:
             if s==mppi.get_substep():
                 control_inputs=mppi.compute_control(car.get_state(),progress,index)
                 s=0
-            if velocity<1:
-                stuck+=1
-            else: stuck=0
-            if stuck>200:
-                reason=3
-                break
             s+=1
             car.time_step(control_inputs,0.01)
             time+=0.01
         if reason==1:
             score=time
         else:
-            score=time+((Track.get_track_length()-total_progress)/33)+200
+            score=((Track.get_track_length()-total_progress)/33)+200
         return reason, total_progress, time, score
 
     def one_gen(self):
@@ -130,5 +135,5 @@ class tuning:
 if __name__ == "__main__":
     terminal=int(sys.argv[1])
     Tuning=tuning(K=12,k=4,max_steps=20000,csv_name="tuning_log_" + str(terminal) + ".csv", seed=terminal)
-    Tuning.run(50)
+    Tuning.run(1)
         

@@ -78,7 +78,7 @@ class mppi_controller():
         
     def compute_control(self,state, progress, index):
         noise=np.zeros((self.number_plans,self.number_control_steps,2))
-        sd_steering=(self.ao*self.car.get_wheelbase())/np.maximum(1e-5,(self.car.get_velocity()**2))
+        sd_steering=(self.ao*self.car.get_wheelbase())/np.maximum(5,(self.car.get_velocity()**2))
         sd_steering=np.clip(sd_steering,self.min_sd_steering,self.max_sd_steering)
         steering_noise=self.rng.normal(0, sd_steering,(self.number_plans,self.number_control_steps))
         acceleration_noise=self.rng.normal(0,self.sd_acceleration,(self.number_plans,self.number_control_steps))
