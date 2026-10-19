@@ -13,12 +13,14 @@ class vehicle():
                 max_speed=100, 
                 wheel_base=2, 
                 max_acceleration=14, 
-                max_brake=35):
+                max_brake=35,
+                max_steering_angle=0.35):
         self.state=state
         self.max_speed=max_speed
         self.wheel_base=wheel_base
         self.max_acceleration=max_acceleration
         self.max_brake=max_brake
+        self.max_steering_angle=max_steering_angle
 
     def get_max_acceleration(self):
         return self.max_acceleration
@@ -39,7 +41,9 @@ class vehicle():
         state=self.calculate_new_state(self.state,control_inputs,delta_t)
         self.state=state
 
-
+    def get_state(self):
+        return self.state.copy()
+    
     def get_yaw(self):
         return self.state[...,2]
     
@@ -56,11 +60,18 @@ class vehicle():
         vector=racetrack[1]-racetrack[0]
         self.state[2]=np.atan2(vector[1],vector[0])
 
+    def set_starting_position(self,racetrack):
+        self.state[0]=racetrack[0][0]
+        self.state[1]=racetrack[0][1]
+
     def update_acceleration(self, acceleration):
         return np.clip(acceleration,-self.max_brake,self.max_acceleration)
 
     def update_steering_angle(self,steering_angle):
-        return np.clip(steering_angle,-0.35, 0.35)
+        return np.clip(steering_angle,-self.max_steering_angle, self.max_steering_angle)
+
+    def get_max_steering_angle(self):
+        return self.max_steering_angle
 
     
 
@@ -256,3 +267,5 @@ class dynamic_vehicle(vehicle):
     def get_yaw_rate(self):
         return self.state[...,5]
 
+    def get_min_friction_coefficient(self):
+        return min(self.friction_coefficient_front, self.friction_coefficient_rear)

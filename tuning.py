@@ -1,0 +1,151 @@
+import vehicle
+from track import track 
+from mppi_controller.mppi_controller import mppi_controller
+import numpy as np
+import csv
+import sys
+from multiprocessing import Pool
+class tuning:
+    def __init__(self,
+                 number_plans=1000,
+                 substeps=5,
+                 physics_time_step=0.01,
+                 csv_racetrack="Hockenheim.csv",
+                 seed=420,
+                 seeds=[42,1900],
+                 K=20,
+                 k=5,
+                 max_steps=20000,
+                 csv_name="tuning_log.csv",
+                 processes=5):
+        self.processes=processes
+        self.max_steps=max_steps
+        self.csv_name=csv_name
+        self.K=K
+        self.k=k
+        self.rng=np.random.default_rng(seed)
+        self.number_plans=number_plans
+        self.substeps=substeps
+        self.physics_time_step=physics_time_step
+        self.csv_racetrack=csv_racetrack
+        self.seeds=seeds
+        self.log_array=np.array([True,True,True,True,True,False,False])
+        self.min_values=np.array([0.3,5,0.5,0.3,1,0.8,30])
+        self.max_values=np.array([20,100,5,3,20,1.05,80])
+        self.z_min=np.where(self.log_array,np.log10(self.min_values), self.min_values)
+        self.z_max=np.where(self.log_array,np.log10(self.max_values), self.max_values)
+        self.mean_value_array=(self.z_max+self.z_min)/2
+        self.o=(self.z_max-self.z_min)/4
+        self.o_min=(self.z_max-self.z_min)/10
+        self.starting_values=self.rng.uniform(self.z_min,self.z_max)
+        self.best_score_so_far=100000
+        self.variables_best_score_so_far=[]
+        self.generation=0
+
+    
+
+    def one_gen(self):
+        score_set=[]
+        draw=self.rng.normal(self.mean_value_array,self.o, size=(self.K,len(self.mean_value_array)))
+        draw=np.clip(draw,self.z_min,self.z_max)
+        draw_real=np.where(self.log_array,10**draw,draw)
+        jobs=[]
+        for i in range(self.K):
+            for j in self.seeds:
+                jobs.append((draw_real[i,...],j,self.csv_racetrack,self.number_plans,self.physics_time_step,self.substeps,self.max_steps))
+        with Pool(processes=self.processes) as pool: solution=pool.starmap(run_lap,jobs,chunksize=1)
+        n=0
+        for element in solution:
+            set_index=n//len(self.seeds)
+            seed=self.seeds[n%len(self.seeds)]
+            with open(self.csv_name, 'a', newline='') as f: csv.writer(f).writerow([self.generation, set_index, seed, *draw_real[set_index], element[0], element[1], element[2], element[3]])
+            n+=1
+        score_set=np.array(solution)
+        score_set=score_set[...,3]
+        score_set=score_set.reshape(self.K, len(self.seeds))
+        score_set=score_set.mean(axis=1)
+        scores_sorted=np.argsort(score_set)
+        elite=draw[scores_sorted,...]
+        elite=elite[0:self.k,...]
+        self.mean_value_array=np.mean(elite,axis=0)
+        self.o=np.std(elite,axis=0)
+        self.o=np.maximum(self.o,self.o_min)
+        if self.best_score_so_far>score_set[scores_sorted[0]]:
+            self.best_score_so_far=score_set[scores_sorted[0]]
+            variables_best_score_so_far=elite[0].copy()
+            self.variables_best_score_so_far=np.where(self.log_array,10**variables_best_score_so_far,variables_best_score_so_far)
+        self.generation+=1
+        return np.mean(score_set)
+
+
+
+
+    def run(self,generations):
+        for i in range(generations):
+            mean=self.one_gen()
+            current_mean=np.where(self.log_array,10**self.mean_value_array,self.mean_value_array)
+            print("score:",mean,"Mean:",current_mean)
+
+def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps,max_steps):
+        temperature=params[0]
+        ao=params[1]
+        sd_acceleration=params[2]
+        c_under=params[3]
+        c_over=params[4]
+        profile_grip_factor=params[5]
+        number_control_steps=int(round(params[6]))
+        car=vehicle.dynamic_vehicle()
+        Track=track(csv_racetrack,car.get_min_friction_coefficient(),car.get_downforce_factor(),car.get_mass(),car.get_max_speed(),profile_grip_factor)
+        mppi=mppi_controller(car,Track,number_plans,number_control_steps,physics_time_step,substeps,sd_acceleration,temperature,None,seed,ao,c_under,c_over)
+        index=0
+        car.set_starting_position(Track.get_midline())
+        car.set_starting_angle(Track.get_midline())
+        total_progress=0
+        progress_old=0
+        r=0
+        s=mppi.get_substep()
+        stuck=0
+        reason=0 #1=lap complete 2=off track 3=stuck 4=time limit
+        time=0
+        progress_stuck=0
+        while True:
+            velocity=car.get_velocity()
+            index, progress,lateral,ontrack=Track.locate(car.get_position(),index)
+            if velocity<1:
+                stuck+=1
+            else: 
+                stuck=0
+                progress_stuck=progress
+            if (stuck>200) & (np.isclose(progress,progress_stuck,atol=0.1)):
+                reason=3
+                break
+            total_progress+=Track.progress_difference(progress_old, progress)
+            progress_old=progress
+            if total_progress>Track.get_track_length():
+                reason=1
+                break
+            if r>max_steps:
+                reason=4
+                break
+            if ontrack==False:
+                reason=2
+                break
+            r+=1
+            if s==mppi.get_substep():
+                control_inputs=mppi.compute_control(car.get_state(),progress,index)
+                s=0
+            s+=1
+            car.time_step(control_inputs,0.01)
+            time+=0.01
+        if reason==1:
+            score=time
+        else:
+            score=((Track.get_track_length()-total_progress)/33)+200
+        return reason, total_progress, time, score
+
+
+if __name__ == "__main__":
+    terminal=int(sys.argv[1])
+    Tuning=tuning(K=12,k=4,max_steps=20000,csv_name="tuning_log_" + str(terminal) + ".csv", seed=terminal, processes=6)
+    Tuning.run(50)
+        
