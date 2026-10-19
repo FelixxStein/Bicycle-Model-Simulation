@@ -14,7 +14,7 @@ downforce_factor=car.get_downforce_factor()
 mass=car.get_mass()
 v_max=car.get_max_speed()
 #convert csv to coordinates
-Track=track("Hockenheim.csv",friction_coefficient, downforce_factor, mass, v_max)
+Track=track("Hockenheim.csv",friction_coefficient, downforce_factor, mass, v_max, profile_grip_factor=0.974)
 path=Track.get_midline()
 borderleft=Track.get_border_left()
 borderright=Track.get_border_right()
@@ -57,7 +57,7 @@ cartrace=np.array(cartrace)
 '''
 
 #Mppi controller test:
-Mppi=mppi_controller(car,Track)
+Mppi=mppi_controller(car,Track,1000,74,0.01,5,1.08,3.77,None,42,83,0.63,1.4)
 index=0
 total_progress=0
 progress_old=0
