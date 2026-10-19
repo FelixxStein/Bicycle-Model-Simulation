@@ -14,7 +14,7 @@ downforce_factor=car.get_downforce_factor()
 mass=car.get_mass()
 v_max=car.get_max_speed()
 #convert csv to coordinates
-Track=track("Hockenheim.csv",friction_coefficient, downforce_factor, mass, v_max, profile_grip_factor=0.974)
+Track=track("Hockenheim.csv",friction_coefficient, downforce_factor, mass, v_max,car.get_max_brake(), profile_grip_factor=0.974)
 path=Track.get_midline()
 borderleft=Track.get_border_left()
 borderright=Track.get_border_right()

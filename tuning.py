@@ -95,8 +95,8 @@ def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps
         profile_grip_factor=params[5]
         number_control_steps=int(round(params[6]))
         car=vehicle.dynamic_vehicle()
-        Track=track(csv_racetrack,car.get_min_friction_coefficient(),car.get_downforce_factor(),car.get_mass(),car.get_max_speed(),profile_grip_factor)
-        mppi=mppi_controller(car,Track,number_plans,number_control_steps,physics_time_step,substeps,sd_acceleration,temperature,None,seed,ao,c_under,c_over)
+        Track=track(csv_racetrack=csv_racetrack,friction_coefficient=car.get_min_friction_coefficient(),downforce_factor=car.get_downforce_factor(),mass=car.get_mass(),max_speed=car.get_max_speed(),max_break=car.get_max_brake(),profile_grip_factor=profile_grip_factor)
+        mppi=mppi_controller(car=car,track=Track,number_plans=number_plans,number_control_steps=number_control_steps,physics_time_step=physics_time_step,substeps=substeps,sd_acceleration=sd_acceleration,temperature=temperature,starting_plan=None,seed=seed,ao=ao,c_under=c_under, c_over=c_over)
         index=0
         car.set_starting_position(Track.get_midline())
         car.set_starting_angle(Track.get_midline())
