@@ -29,9 +29,9 @@ class tuning:
         self.physics_time_step=physics_time_step
         self.csv_racetrack=csv_racetrack
         self.seeds=seeds
-        self.log_array=np.array([True,True,True,True,True,False,False,True])
-        self.min_values=np.array([0.3,2,0.5,0.3,1,0.8,30,0.1])
-        self.max_values=np.array([20,100,5,3,20,1.05,80,2])
+        self.log_array=np.array([True,True,True,True,True,False,False,True,True])
+        self.min_values=np.array([0.05,2,0.5,0.3,1,0.8,30,0.1,0.1])
+        self.max_values=np.array([2,100,5,3,20,1.05,80,2,50])
         self.z_min=np.where(self.log_array,np.log10(self.min_values), self.min_values)
         self.z_max=np.where(self.log_array,np.log10(self.max_values), self.max_values)
         self.mean_value_array=(self.z_max+self.z_min)/2
@@ -87,7 +87,7 @@ class tuning:
             print("score:",mean,"Mean:",current_mean)
 
 def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps,max_steps):
-        temperature=params[0]
+        temperature_factor=params[0]
         ao=params[1]
         sd_acceleration=params[2]
         c_under=params[3]
@@ -95,9 +95,10 @@ def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps
         profile_grip_factor=params[5]
         number_control_steps=int(round(params[6]))
         c_close=params[7]
+        c_steer=params[8]
         car=vehicle.dynamic_vehicle()
         Track=track(csv_racetrack=csv_racetrack,friction_coefficient=car.get_min_friction_coefficient(),downforce_factor=car.get_downforce_factor(),mass=car.get_mass(),v_max=car.get_max_speed(),max_break=car.get_max_brake(),profile_grip_factor=profile_grip_factor)
-        mppi=mppi_controller(car=car,track=Track,number_plans=number_plans,number_control_steps=number_control_steps,physics_time_step=physics_time_step,substeps=substeps,sd_acceleration=sd_acceleration,temperature=temperature,starting_plan=None,seed=seed,ao=ao,c_under=c_under, c_over=c_over, c_close=c_close)
+        mppi=mppi_controller(car=car,track=Track,number_plans=number_plans,number_control_steps=number_control_steps,physics_time_step=physics_time_step,substeps=substeps,sd_acceleration=sd_acceleration,temperature_factor=temperature_factor,starting_plan=None,seed=seed,ao=ao,c_under=c_under, c_over=c_over, c_close=c_close,c_steer=c_steer)
         index=0
         car.set_starting_position(Track.get_midline())
         car.set_starting_angle(Track.get_midline())
@@ -147,6 +148,6 @@ def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps
 
 if __name__ == "__main__":
     terminal=int(sys.argv[1])
-    Tuning=tuning(K=16,k=5,max_steps=20000,csv_name="tuning_log_" + str(terminal) + ".csv", seed=terminal, processes=6)
+    Tuning=tuning(K=18,k=5,max_steps=20000,csv_name="tuning_log_" + str(terminal) + ".csv", seed=terminal, processes=6)
     Tuning.run(50)
         

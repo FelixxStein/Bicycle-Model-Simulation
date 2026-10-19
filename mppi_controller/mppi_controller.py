@@ -8,7 +8,7 @@ class mppi_controller():
                 physics_time_step=0.01,
                 substeps=5,
                 sd_acceleration=2,
-                temperature=0.5,
+                temperature_factor=0.5,
                 starting_plan=None, 
                 seed=42,
                 ao=70,
@@ -20,7 +20,11 @@ class mppi_controller():
                 d_safe_min=0.3,
                 scale_factor_width_speed=0.02,
                 c_close=1,
-                noise_factor=0.9):
+                noise_factor=0.9,
+                temperature_epsilon=0.1, 
+                c_steer=10):
+        self.temperature_epsilon=temperature_epsilon
+        self.c_steer=c_steer
         self.noise_factor=noise_factor
         self.scale_factor_width_speed=scale_factor_width_speed
         self.c_close=c_close
@@ -40,7 +44,7 @@ class mppi_controller():
             self.best_current_plan[...,1]+=5
         else:
             self.best_current_plan=starting_plan.copy()
-        self.temperature=temperature
+        self.temperature_factor=temperature_factor
         self.crashrate=[]
         self.effective_number_of_plans=[]
         self.ao=ao
@@ -63,7 +67,7 @@ class mppi_controller():
 
         return results
 
-    def cost_function(self, result, start_progress, start_index):
+    def cost_function(self, result, start_progress, start_index, v_shape_arr):
         n,t,shape=np.shape(result)
         index=start_index
         progress_arr=np.zeros(n)
@@ -78,13 +82,19 @@ class mppi_controller():
             last_progress=progress
         v_end=np.linalg.norm(result[...,-1,3:5],axis=-1)
         v_allowed=self.v_allowed[index]
-        cost=np.where(off_track_arr==True,-progress_arr+self.crash_penalty,-progress_arr)-self.c_under*np.minimum(v_end, v_allowed)+self.c_over*np.maximum(0,v_end-v_allowed)+self.c_close*distance_array
+        steering_diff=np.sum(((np.diff(v_shape_arr[...,0],axis=1))/self.car.get_max_steering_angle())**2,axis=1)
+        cost=np.where(off_track_arr==True,-progress_arr+self.crash_penalty,-progress_arr)-self.c_under*np.minimum(v_end, v_allowed)+self.c_over*np.maximum(0,v_end-v_allowed)+self.c_close*distance_array+self.c_steer*steering_diff
         self.crashrate.append(np.sum(off_track_arr)/len(off_track_arr))
-        return cost
+        return cost, off_track_arr
 
-    def compute_weights(self,costs):
+    def compute_weights(self,costs, off_track_arr):
+        if np.any(~ off_track_arr):
+            spread=np.std(costs[~ off_track_arr])
+        else:
+            spread=np.std(costs)
+        temperature=self.temperature_factor*spread+self.temperature_epsilon
         min_cost=np.min(costs) 
-        weights=np.exp(-(costs-min_cost)/self.temperature)
+        weights=np.exp(-(costs-min_cost)/temperature)
         weights=weights/np.sum(weights)
         return weights
         
@@ -115,8 +125,8 @@ class mppi_controller():
         ])
         v_shape_array=np.concatenate((v_shape_array,given_sets),axis=0)
         result=self.rollout(state,v_shape_array)
-        cost=self.cost_function(result,progress,index)
-        weights=self.compute_weights(cost)
+        cost, off_track_arr=self.cost_function(result,progress,index, v_shape_arr=v_shape_array)
+        weights=self.compute_weights(cost, off_track_arr)
         self.effective_number_of_plans.append(1/np.sum(weights**2))
         weights=weights[...,None,None]
         self.best_current_plan=np.sum(v_shape_array*weights,axis=0)
