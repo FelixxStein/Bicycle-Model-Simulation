@@ -54,6 +54,7 @@ class mppi_controller():
         self.crash_penalty=crash_penalty
         self.width_left=self.track.get_distance_left()
         self.width_right=self.track.get_distance_right()
+        self.last_steering=0
 
     def rollout(self,state,V_shape_array):
         n, t, inputs=np.shape(V_shape_array)
@@ -82,7 +83,7 @@ class mppi_controller():
             last_progress=progress
         v_end=np.linalg.norm(result[...,-1,3:5],axis=-1)
         v_allowed=self.v_allowed[index]
-        steering_diff=np.sum(((np.diff(v_shape_arr[...,0],axis=1))/self.car.get_max_steering_angle())**2,axis=1)
+        steering_diff=np.sum(((np.diff(v_shape_arr[...,0],axis=1,prepend=self.last_steering))/self.car.get_max_steering_angle())**2,axis=1)
         cost=np.where(off_track_arr==True,-progress_arr+self.crash_penalty,-progress_arr)-self.c_under*np.minimum(v_end, v_allowed)+self.c_over*np.maximum(0,v_end-v_allowed)+self.c_close*distance_array+self.c_steer*steering_diff
         self.crashrate.append(np.sum(off_track_arr)/len(off_track_arr))
         return cost, off_track_arr
@@ -131,6 +132,7 @@ class mppi_controller():
         weights=weights[...,None,None]
         self.best_current_plan=np.sum(v_shape_array*weights,axis=0)
         car_controls=self.best_current_plan[0]
+        self.last_steering=car_controls[0]
         self.best_current_plan=np.roll(self.best_current_plan,-1,0)
         self.best_current_plan[-1]=self.best_current_plan[-2]
         return car_controls
