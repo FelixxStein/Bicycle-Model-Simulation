@@ -57,7 +57,7 @@ cartrace=np.array(cartrace)
 '''
 
 #Mppi controller test:
-Mppi=mppi_controller(car,Track,number_plans=1000,number_control_steps=74,physics_time_step=0.01,substeps=5,sd_acceleration=1.08,temperature=3.77,starting_plan=None,seed=42,ao=83,c_under=0.63,c_over=1.4)
+Mppi=mppi_controller(car,Track,number_plans=1000,number_control_steps=74,physics_time_step=0.01,substeps=5,sd_acceleration=1.08,temperature=3.77,starting_plan=None,seed=42,ao=10,c_under=0.63,c_over=1.4)
 index=0
 total_progress=0
 progress_old=0

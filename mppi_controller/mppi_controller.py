@@ -72,10 +72,10 @@ class mppi_controller():
         distance_array=np.zeros(n)
         for i in range(t):
             index, progress, lateral,ontrack=self.track.locate(result[...,i,0:2], index)
-            progress_arr+=self.track.progress_difference(last_progress,progress)
             distance_array+=np.maximum(0,(self.d_safe_min+self.scale_factor_width_speed*np.linalg.norm(result[...,i,3:5],axis=-1))-np.minimum(self.width_left[index]-lateral,self.width_right[index]+lateral))**2
-            last_progress=progress
             off_track_arr=np.where((ontrack==False)|(off_track_arr==True),True,False)
+            progress_arr=progress_arr+np.where(~ off_track_arr,self.track.progress_difference(last_progress,progress),0)
+            last_progress=progress
         v_end=np.linalg.norm(result[...,-1,3:5],axis=-1)
         v_allowed=self.v_allowed[index]
         cost=np.where(off_track_arr==True,-progress_arr+self.crash_penalty,-progress_arr)-self.c_under*np.minimum(v_end, v_allowed)+self.c_over*np.maximum(0,v_end-v_allowed)+self.c_close*distance_array
@@ -102,6 +102,18 @@ class mppi_controller():
         v_shape_array=self.best_current_plan+noise
         v_shape_array[..., 0]=np.clip(v_shape_array[..., 0],-self.car.get_max_steering_angle(),self.car.get_max_steering_angle())
         v_shape_array[..., 1]=np.clip(v_shape_array[..., 1],-self.car.get_max_brake(),self.car.get_max_acceleration())
+        given_sets = np.array([
+            self.best_current_plan,
+            np.stack([
+                self.best_current_plan[..., 0], 
+                np.full((self.number_control_steps), self.car.get_max_acceleration())
+            ], axis=-1),
+            np.stack([
+                self.best_current_plan[..., 0], 
+                np.full((self.number_control_steps), -self.car.get_max_brake())
+            ], axis=-1)
+        ])
+        v_shape_array=np.concatenate((v_shape_array,given_sets),axis=0)
         result=self.rollout(state,v_shape_array)
         cost=self.cost_function(result,progress,index)
         weights=self.compute_weights(cost)
