@@ -2,7 +2,7 @@ import numpy as np
 class mppi_controller():
     def __init__(self,
                 car,
-                track,
+                track,*,
                 number_plans=1000,
                 number_control_steps=60,
                 physics_time_step=0.01,
@@ -16,7 +16,15 @@ class mppi_controller():
                 c_over=5,
                 min_sd_steering=0.003,
                 max_sd_steering=0.2,
-                crash_penalty=1000):
+                crash_penalty=1000,
+                d_safe_min=0.3,
+                scale_factor_width_speed=0.02,
+                c_close=1,
+                noise_factor=0.9):
+        self.noise_factor=noise_factor
+        self.scale_factor_width_speed=scale_factor_width_speed
+        self.c_close=c_close
+        self.d_safe_min=d_safe_min
         self.c_under=c_under
         self.c_over=c_over
         self.rng=np.random.default_rng(seed)
@@ -40,6 +48,8 @@ class mppi_controller():
         self.max_sd_steering=max_sd_steering
         self.v_allowed=self.track.get_v_allowed()
         self.crash_penalty=crash_penalty
+        self.width_left=self.track.get_distance_left()
+        self.width_right=self.track.get_distance_right()
 
     def rollout(self,state,V_shape_array):
         n, t, inputs=np.shape(V_shape_array)
@@ -59,14 +69,16 @@ class mppi_controller():
         progress_arr=np.zeros(n)
         off_track_arr=np.full(n,False)
         last_progress=start_progress
+        distance_array=np.zeros(n)
         for i in range(t):
             index, progress, lateral,ontrack=self.track.locate(result[...,i,0:2], index)
             progress_arr+=self.track.progress_difference(last_progress,progress)
+            distance_array+=np.maximum(0,(self.d_safe_min+self.scale_factor_width_speed*np.linalg.norm(result[...,i,3:5],axis=-1))-np.minimum(self.width_left[index]-lateral,self.width_right[index]+lateral))**2
             last_progress=progress
             off_track_arr=np.where((ontrack==False)|(off_track_arr==True),True,False)
         v_end=np.linalg.norm(result[...,-1,3:5],axis=-1)
         v_allowed=self.v_allowed[index]
-        cost=np.where(off_track_arr==True,-progress_arr+self.crash_penalty,-progress_arr)-self.c_under*np.minimum(v_end, v_allowed)+self.c_over*np.maximum(0,v_end-v_allowed)
+        cost=np.where(off_track_arr==True,-progress_arr+self.crash_penalty,-progress_arr)-self.c_under*np.minimum(v_end, v_allowed)+self.c_over*np.maximum(0,v_end-v_allowed)+self.c_close*distance_array
         self.crashrate.append(np.sum(off_track_arr)/len(off_track_arr))
         return cost
 
@@ -82,6 +94,9 @@ class mppi_controller():
         sd_steering=np.clip(sd_steering,self.min_sd_steering,self.max_sd_steering)
         steering_noise=self.rng.normal(0, sd_steering,(self.number_plans,self.number_control_steps))
         acceleration_noise=self.rng.normal(0,self.sd_acceleration,(self.number_plans,self.number_control_steps))
+        for i in range(1,self.number_control_steps):
+            steering_noise[...,i]=self.noise_factor*steering_noise[...,i-1]+np.sqrt(1-(self.noise_factor)**2)*steering_noise[...,i]
+            acceleration_noise[...,i]=self.noise_factor*acceleration_noise[...,i-1]+np.sqrt(1-(self.noise_factor)**2)*acceleration_noise[...,i]
         noise[...,0]+=steering_noise
         noise[...,1]+=acceleration_noise
         v_shape_array=self.best_current_plan+noise
