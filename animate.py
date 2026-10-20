@@ -2,7 +2,7 @@ from pygame.locals import *
 import pygame 
 
 
-'''
+
 window_widht=1200
 window_height=785
 padding=200
@@ -69,6 +69,6 @@ while running:
     clock.tick(60)  # limits FPS to 60
 
 pygame.quit()
-'''
+
 
 
