@@ -30,6 +30,8 @@ r=0
 cartrace=[]
 cartrace.append(car.get_position())
 velocity_list=[car.get_velocity()]
+heading_angle=[car.get_yaw()]
+controls=[[0,0]]
 '''
 index=0
 total_progress=0
@@ -82,6 +84,18 @@ while True:
     car.time_step(control_inputs,0.01)
     cartrace.append(car.get_position())
     velocity_list.append(car.get_velocity())
+    heading_angle.append(car.get_yaw())
+    controls.append(control_inputs)
+
+path_trajectory_array, weights_array, off_track_array,current_trajectory=Mppi.get_logs()
+
+np.stack(cartrace)
+np.stack(velocity_list)
+np.stack(heading_angle)
+np.stack(controls)
+
+
+np.savez("Logs",(Track.get_midline(),Track.get_border_left(),Track.get_border_right,cartrace,velocity_list,heading_angle,controls,path_trajectory_array,weights_array,off_track_array,current_trajectory))
 
 
 

@@ -22,8 +22,14 @@ class mppi_controller():
                 c_close=1,
                 noise_factor=0.9,
                 temperature_epsilon=0.1, 
-                c_steer=10):
+                c_steer=10, 
+                log_rollouts=False):
         self.temperature_epsilon=temperature_epsilon
+        self.log_rollouts=log_rollouts
+        self.off_track_array=[]
+        self.path_trajectory_array=[]
+        self.weights_array=[]
+        self.current_trajectory=[]
         self.c_steer=c_steer
         self.noise_factor=noise_factor
         self.scale_factor_width_speed=scale_factor_width_speed
@@ -129,13 +135,29 @@ class mppi_controller():
         cost, off_track_arr=self.cost_function(result,progress,index, v_shape_arr=v_shape_array)
         weights=self.compute_weights(cost, off_track_arr)
         self.effective_number_of_plans.append(1/np.sum(weights**2))
-        weights=weights[...,None,None]
-        self.best_current_plan=np.sum(v_shape_array*weights,axis=0)
+        weights_appended=weights[...,None,None]
+        self.best_current_plan=np.sum(v_shape_array*weights_appended,axis=0)
         car_controls=self.best_current_plan[0]
         self.last_steering=car_controls[0]
+        if self.log_rollouts==True:
+            #best 30 arrays
+            weights_sorted=np.argsort(-weights)
+            best_thirty=weights_sorted[0:30]
+            #random arrays of rest
+            all_indices=np.arange(len(weights))
+            valid_indices=np.setdiff1d(all_indices,best_thirty)
+            selected_indices=np.concatenate((best_thirty,np.random.choice(valid_indices, size=20, replace=False)))
+            self.off_track_array.append(off_track_arr[selected_indices])
+            self.path_trajectory_array.append(result[selected_indices,...,0:2])
+            selected_weights=weights[selected_indices]/np.max(weights[selected_indices])
+            self.weights_array.append(selected_weights)
+            self.current_trajectory.append(self.rollout(state,self.best_current_plan[None,...])[0,...,0:2])
         self.best_current_plan=np.roll(self.best_current_plan,-1,0)
         self.best_current_plan[-1]=self.best_current_plan[-2]
         return car_controls
 
     def get_substep(self):
         return self.substeps
+
+    def get_logs(self):
+        return np.stack(self.path_trajectory_array), np.stack(self.weights_array), np.stack(self.off_track_array), np.stack(self.current_trajectory)
