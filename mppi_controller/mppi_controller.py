@@ -38,6 +38,7 @@ class mppi_controller():
         self.c_under=c_under
         self.c_over=c_over
         self.rng=np.random.default_rng(seed)
+        self.seed=seed
         self.car=car
         self.track=track
         self.number_plans=number_plans
@@ -161,3 +162,6 @@ class mppi_controller():
 
     def get_logs(self):
         return np.stack(self.path_trajectory_array), np.stack(self.weights_array), np.stack(self.off_track_array), np.stack(self.current_trajectory)
+
+    def get_seed(self):
+        return self.seed
