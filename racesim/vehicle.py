@@ -10,17 +10,19 @@ def tire_function(slip_angle,stiffness_factor,shape_factor,peak_factor,curvature
 class Vehicle():
     def __init__(self,
                 state,
-                max_speed=100, 
-                wheel_base=2, 
-                max_acceleration=14, 
-                max_brake=35,
-                max_steering_angle=0.35):
+                max_speed, 
+                wheel_base, 
+                max_acceleration, 
+                max_brake,
+                max_steering_angle,
+                mass):
         self.state=state
         self.max_speed=max_speed
         self.wheel_base=wheel_base
         self.max_acceleration=max_acceleration
         self.max_brake=max_brake
         self.max_steering_angle=max_steering_angle
+        self.mass=mass
 
     def get_max_acceleration(self):
         return self.max_acceleration
@@ -73,7 +75,10 @@ class Vehicle():
     def get_max_steering_angle(self):
         return self.max_steering_angle
 
-class DynamicVehicle(vehicle):
+    def get_mass(self):
+        return self.mass
+
+class DynamicVehicle(Vehicle):
     def __init__(self,
              max_speed=90, 
              starting_vx=0,              
@@ -102,17 +107,17 @@ class DynamicVehicle(vehicle):
              brake_balance_front=0.55,
              relaxation_time=0.05,
              blend_speed_low=3,
-             blend_speed_high=8
+             blend_speed_high=8,
+             max_steering_angle=0.35
              ):
         calculated_wheel_base=COG_to_front_axis+COG_to_rear_axis
         state=np.array([starting_x,starting_y,starting_yaw,starting_vx,starting_vy,starting_yaw_rate])
-        super().__init__(state,max_speed,calculated_wheel_base, max_acceleration, max_brake)
+        super().__init__(state=state,max_speed=max_speed,wheel_base=calculated_wheel_base,max_acceleration=max_acceleration,max_brake=max_brake,max_steering_angle=max_steering_angle,mass=mass)
         self.yaw_moment_of_inertia=yaw_moment_of_inertia
         self.front_cornering_stiffness=front_cornering_stiffness
         self.rear_cornering_stiffness=rear_cornering_stiffness
         self.COG_to_front_axis=COG_to_front_axis
         self.COG_to_rear_axis=COG_to_rear_axis
-        self.mass=mass
         self.friction_coefficient_front=friction_coefficient_front
         self.friction_coefficient_rear=friction_coefficient_rear
         self.shape_factor=shape_factor
@@ -219,9 +224,6 @@ class DynamicVehicle(vehicle):
 
     def get_downforce_factor(self):
         return self.downforce_factor
-
-    def get_mass(self):
-        return self.mass
 
     def get_yaw_rate(self):
         return self.state[...,5]
