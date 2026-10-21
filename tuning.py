@@ -9,5 +9,5 @@ if __name__ == "__main__":
     parser.add_argument("--processes", type=int, default=6, help="Number of parallel processes")
     parser.add_argument("--generations", type=int, default=50, help="How many generations do you want?")
     args = parser.parse_args()
-    tuning=Tuning(K=args.population_size,k=args.elites,max_steps=args.elites,csv_name="tuning_log_" + args.tuning_run + ".csv", seeds=args.seed, processes=args.processes)
+    tuning=Tuning(K=args.population_size,k=args.elites,csv_name="tuning_log_" + args.tuning_run + ".csv", seeds=args.seed, processes=args.processes)
     tuning.run(args.generations)

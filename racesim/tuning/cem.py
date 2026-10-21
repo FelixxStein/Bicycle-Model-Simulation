@@ -3,7 +3,9 @@ from racesim.track import Track
 from racesim.controllers.mppi_controller import MPPIController
 import numpy as np
 import csv
+from pathlib import Path
 from racesim.simulate_lap import simulate_lap
+from datetime import datetime
 from multiprocessing import Pool
 class Tuning:
     def __init__(self,
@@ -16,11 +18,14 @@ class Tuning:
                  K=20,
                  k=5,
                  max_steps=20000,
-                 csv_name="tuning_log.csv",
                  processes=5):
         self.processes=processes
         self.max_steps=max_steps
-        self.csv_name=csv_name
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+        self.file_path = REPO_ROOT /"results" / timestamp
+        table_row=["generation", "set", "seed","temperature_factor", "ao", "sd_acceleration", "c_under", "c_over","profile_grip_factor", "number_control_steps", "c_close", "c_steer","reason", "progress", "lap_time", "score"]
+        with open(self.file_path, 'a', newline='') as f: csv.writer(f).writerow([*table_row])
         self.K=K
         self.k=k
         self.rng=np.random.default_rng(seed)
@@ -58,7 +63,7 @@ class Tuning:
         for element in solution:
             set_index=n//len(self.seeds)
             seed=self.seeds[n%len(self.seeds)]
-            with open(self.csv_name, 'a', newline='') as f: csv.writer(f).writerow([self.generation, set_index, seed, *draw_real[set_index], element[0], element[1], element[2], element[3]])
+            with open(self.file_path, 'a', newline='') as f: csv.writer(f).writerow([self.generation, set_index, seed, *draw_real[set_index], element[0], element[1], element[2], element[3]])
             n+=1
         score_set=np.array(solution)
         score_set=score_set[...,3]
