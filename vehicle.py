@@ -79,15 +79,15 @@ class vehicle():
 #doesnt work with current controller anymore, will update it or delete it, currently working on real progress though
 class kinematic_vehicle(vehicle):
     def __init__(self,
-                max_speed=100, 
-                starting_velocity=0, 
-                starting_x=0, 
-                starting_y=0, 
-                starting_steering_angle=0, 
-                starting_yaw=0, 
-                wheel_base=2, 
-                max_acceleration=14, 
-                max_brake=35):
+                max_speed=100.0, 
+                starting_velocity=0.0, 
+                starting_x=0.0, 
+                starting_y=0.0, 
+                starting_steering_angle=0.0, 
+                starting_yaw=0.0, 
+                wheel_base=2.0, 
+                max_acceleration=14.0, 
+                max_brake=35.0):
         state=np.stack([starting_x,starting_y,starting_yaw,starting_velocity],axis=-1, dtype=float)
         super().__init__(state,max_speed,wheel_base,max_acceleration,max_brake)
         self.steering_angle = starting_steering_angle
