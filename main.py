@@ -16,7 +16,7 @@ mass=car.get_mass()
 v_max=car.get_max_speed()
 dt=0.01
 #convert csv to coordinates
-Track=track("Hockenheim.csv",friction_coefficient=friction_coefficient, downforce_factor=downforce_factor, mass=mass, v_max=v_max,max_break=car.get_max_brake(), profile_grip_factor=0.9144784340353015)
+Track=track("Spielberg.csv",friction_coefficient=friction_coefficient, downforce_factor=downforce_factor, mass=mass, v_max=v_max,max_break=car.get_max_brake(), profile_grip_factor=0.9144784340353015)
 path=Track.get_midline()
 borderleft=Track.get_border_left()
 borderright=Track.get_border_right()
@@ -62,7 +62,7 @@ cartrace=np.array(cartrace)
 
 
 #Mppi controller test:
-Mppi=mppi_controller(car,Track,number_plans=1000,number_control_steps=67,physics_time_step=0.01,substeps=5,sd_acceleration=2.3544670063559345,temperature_factor=0.18059570323893012,starting_plan=None,seed=1900,ao=3.255868523905106,c_under=1.401774358294363,c_over=1.014917219517641,c_close=0.7200081587015296,c_steer=2.5184027645699096, log_rollouts=True)
+Mppi=mppi_controller(car,Track,number_plans=1000,number_control_steps=67,physics_time_step=0.01,substeps=5,sd_acceleration=2.3544670063559345,temperature_factor=0.18059570323893012,starting_plan=None,seed=1899,ao=3.255868523905106,c_under=1.401774358294363,c_over=1.014917219517641,c_close=0.7200081587015296,c_steer=2.5184027645699096, log_rollouts=True)
 index=0
 total_progress=0
 progress_old=0
