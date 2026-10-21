@@ -4,6 +4,7 @@ from racesim.controllers.mppi_controller import MPPIController
 import numpy as np
 import csv
 import sys
+from racesim.simulate_lap import simulate_lap
 from multiprocessing import Pool
 class Tuning:
     def __init__(self,
@@ -99,46 +100,12 @@ def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps
         car=vehicle.DynamicVehicle()
         track=Track(csv_racetrack=csv_racetrack,friction_coefficient=car.get_min_friction_coefficient(),downforce_factor=car.get_downforce_factor(),mass=car.get_mass(),v_max=car.get_max_speed(),max_break=car.get_max_brake(),profile_grip_factor=profile_grip_factor)
         mppi=MPPIController(car=car,track=track,number_plans=number_plans,number_control_steps=number_control_steps,physics_time_step=physics_time_step,substeps=substeps,sd_acceleration=sd_acceleration,temperature_factor=temperature_factor,starting_plan=None,seed=seed,ao=ao,c_under=c_under, c_over=c_over, c_close=c_close,c_steer=c_steer)
-        index=0
         car.set_starting_position(track.get_midline())
         car.set_starting_angle(track.get_midline())
-        total_progress=0
-        progress_old=0
-        r=0
-        s=mppi.get_substep()
-        stuck=0
-        reason=0 #1=lap complete 2=off track 3=stuck 4=time limit
-        time=0
-        progress_stuck=0
-        while True:
-            velocity=car.get_velocity()
-            index, progress,lateral,ontrack=track.locate(car.get_position(),index)
-            if velocity<1:
-                stuck+=1
-            else: 
-                stuck=0
-                progress_stuck=progress
-            if (stuck>200) & (np.isclose(progress,progress_stuck,atol=0.1)):
-                reason=3
-                break
-            total_progress+=track.progress_difference(progress_old, progress)
-            progress_old=progress
-            if total_progress>track.get_track_length():
-                reason=1
-                break
-            if r>max_steps:
-                reason=4
-                break
-            if ontrack==False:
-                reason=2
-                break
-            r+=1
-            if s==mppi.get_substep():
-                control_inputs=mppi.compute_control(car.get_state(),progress,index)
-                s=0
-            s+=1
-            car.time_step(control_inputs,0.01)
-            time+=0.01
+        dictionary=simulate_lap(car=car,track=track,controller=mppi,max_steps=max_steps,dt=physics_time_step)
+        reason=dictionary["reason"]
+        total_progress=dictionary["progress"]
+        time=dictionary["lap_time"]
         if reason==1:
             score=time
         else:
