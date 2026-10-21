@@ -24,6 +24,7 @@ class MPPIController():
                 temperature_epsilon=0.1, 
                 c_steer=10, 
                 log_rollouts=False):
+        self.margin=track.get_margin()
         self.temperature_epsilon=temperature_epsilon
         self.log_rollouts=log_rollouts
         self.off_track_array=[]
@@ -86,7 +87,7 @@ class MPPIController():
         distance_array=np.zeros(n)
         for i in range(t):
             index, progress, lateral,ontrack=self.track.locate(result[...,i,0:2], index)
-            distance_array+=np.maximum(0,(self.d_safe_min+self.scale_factor_width_speed*np.linalg.norm(result[...,i,3:5],axis=-1))-np.minimum(self.width_left[index]-lateral,self.width_right[index]+lateral))**2
+            distance_array+=np.maximum(0,(self.d_safe_min+self.margin+self.scale_factor_width_speed*np.linalg.norm(result[...,i,3:5],axis=-1))-np.minimum(self.width_left[index]-lateral,self.width_right[index]+lateral))**2
             off_track_arr=np.where((ontrack==False)|(off_track_arr==True),True,False)
             progress_arr=progress_arr+np.where(~ off_track_arr,self.track.progress_difference(last_progress,progress),0)
             last_progress=progress

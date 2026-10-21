@@ -4,8 +4,9 @@ import numpy as np
 import racesim.constants as constants
 
 class Track:
-    def __init__(self,csv_racetrack,*,friction_coefficient,downforce_factor, mass, v_max, max_break, profile_grip_factor=0.9, curvature_lookahead_distance=2,lookahead_closest_index=40,lookbefore_closest_index=5):
+    def __init__(self,csv_racetrack,*,friction_coefficient,downforce_factor, mass, v_max, max_break, profile_grip_factor=0.9, curvature_lookahead_distance=2,lookahead_closest_index=40,lookbefore_closest_index=5, margin=0.5):
         REPO_ROOT = Path(__file__).resolve().parent.parent
+        self.margin=margin
         csv_path = REPO_ROOT /"data" /"racetracks" /csv_racetrack
         self.df = pd.read_csv(csv_path)
         self.lookahead_closest_index=lookahead_closest_index
@@ -97,7 +98,7 @@ class Track:
     def forward_distance(self, a, b):
         return (self.cumulative_point_distance[b]-self.cumulative_point_distance[a])%self.track_length
 
-    def locate(self,position, start_index,margin=0.5):
+    def locate(self,position, start_index):
         index=self.get_closest_index(start_index, position)
         difference=position-self.midline[index]
         along=np.sum(difference*self.tangent[index], axis=-1)
@@ -107,7 +108,7 @@ class Track:
         along=np.sum(difference*self.tangent[index], axis=-1)
         lateral=np.sum(difference*self.normal[index], axis=-1)
         progress=self.cumulative_point_distance[index]+along
-        ontrack=self.on_track(index,lateral,margin)
+        ontrack=self.on_track(index,lateral,self.margin)
         return index, progress,lateral,ontrack
 
     def on_track(self,index,lateral, margin):
@@ -148,5 +149,8 @@ class Track:
 
     def get_distance_right(self):
         return self.w_tr_right_m
+
+    def get_margin(self):
+        return self.margin
 
 

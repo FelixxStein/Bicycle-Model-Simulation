@@ -18,7 +18,7 @@ class Animate:
         self.max_zoom=max_zoom
         self.data=np.load(path)
         self.has_rollouts=False
-        if self.data["controller"]=="mppi" & "path_trajectory_array" in self.data["controller"]:
+        if self.data["controller"]=="mppi" and "path_trajectory_array" in self.data["controller"]:
             self.has_rollouts=True
         self.path_trajectory_array=self.data["path_trajectory_array"]
         self.weights_array=self.data["weights_array"]
