@@ -1,11 +1,11 @@
 from pathlib import Path
 import pandas as pd
 import numpy as np
-import constants
+import racesim.constants as constants
 
 class Track:
     def __init__(self,csv_racetrack,*,friction_coefficient,downforce_factor, mass, v_max, max_break, profile_grip_factor=0.9, curvature_lookahead_distance=2,lookahead_closest_index=40,lookbefore_closest_index=5):
-        REPO_ROOT = Path(__file__).resolve().parent
+        REPO_ROOT = Path(__file__).resolve().parent.parent
         csv_path = REPO_ROOT /"data" /"racetracks" /csv_racetrack
         self.df = pd.read_csv(csv_path)
         self.lookahead_closest_index=lookahead_closest_index

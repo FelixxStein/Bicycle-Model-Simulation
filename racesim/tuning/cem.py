@@ -1,6 +1,6 @@
-import vehicle
-from track import track 
-from mppi_controller.mppi_controller import mppi_controller
+import racesim.vehicle as vehicle
+from racesim.track import Track 
+from racesim.controllers.mppi_controller import MPPIController
 import numpy as np
 import csv
 import sys
@@ -96,12 +96,12 @@ def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps
         number_control_steps=int(round(params[6]))
         c_close=params[7]
         c_steer=params[8]
-        car=vehicle.dynamic_vehicle()
-        Track=track(csv_racetrack=csv_racetrack,friction_coefficient=car.get_min_friction_coefficient(),downforce_factor=car.get_downforce_factor(),mass=car.get_mass(),v_max=car.get_max_speed(),max_break=car.get_max_brake(),profile_grip_factor=profile_grip_factor)
-        mppi=mppi_controller(car=car,track=Track,number_plans=number_plans,number_control_steps=number_control_steps,physics_time_step=physics_time_step,substeps=substeps,sd_acceleration=sd_acceleration,temperature_factor=temperature_factor,starting_plan=None,seed=seed,ao=ao,c_under=c_under, c_over=c_over, c_close=c_close,c_steer=c_steer)
+        car=vehicle.DynamicVehicle()
+        track=Track(csv_racetrack=csv_racetrack,friction_coefficient=car.get_min_friction_coefficient(),downforce_factor=car.get_downforce_factor(),mass=car.get_mass(),v_max=car.get_max_speed(),max_break=car.get_max_brake(),profile_grip_factor=profile_grip_factor)
+        mppi=MPPIController(car=car,track=track,number_plans=number_plans,number_control_steps=number_control_steps,physics_time_step=physics_time_step,substeps=substeps,sd_acceleration=sd_acceleration,temperature_factor=temperature_factor,starting_plan=None,seed=seed,ao=ao,c_under=c_under, c_over=c_over, c_close=c_close,c_steer=c_steer)
         index=0
-        car.set_starting_position(Track.get_midline())
-        car.set_starting_angle(Track.get_midline())
+        car.set_starting_position(track.get_midline())
+        car.set_starting_angle(track.get_midline())
         total_progress=0
         progress_old=0
         r=0
@@ -112,7 +112,7 @@ def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps
         progress_stuck=0
         while True:
             velocity=car.get_velocity()
-            index, progress,lateral,ontrack=Track.locate(car.get_position(),index)
+            index, progress,lateral,ontrack=track.locate(car.get_position(),index)
             if velocity<1:
                 stuck+=1
             else: 
@@ -121,9 +121,9 @@ def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps
             if (stuck>200) & (np.isclose(progress,progress_stuck,atol=0.1)):
                 reason=3
                 break
-            total_progress+=Track.progress_difference(progress_old, progress)
+            total_progress+=track.progress_difference(progress_old, progress)
             progress_old=progress
-            if total_progress>Track.get_track_length():
+            if total_progress>track.get_track_length():
                 reason=1
                 break
             if r>max_steps:
@@ -142,7 +142,7 @@ def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps
         if reason==1:
             score=time
         else:
-            score=((Track.get_track_length()-total_progress)/33)+200
+            score=((track.get_track_length()-total_progress)/33)+200
         return reason, total_progress, time, score
 
 

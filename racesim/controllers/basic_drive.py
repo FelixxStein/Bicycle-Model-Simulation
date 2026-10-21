@@ -1,5 +1,5 @@
-from basic_drive_controller.PID_speed_controller import PIDSpeedController
-from basic_drive_controller.pure_pursuit_controller import PurePursuitController
+from racesim.controllers.pid_speed import PIDSpeedController
+from racesim.controllers.pure_pursuit import PurePursuitController
 
 class BasicDriveController:
     def __init__(self,

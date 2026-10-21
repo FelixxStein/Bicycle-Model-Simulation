@@ -1,4 +1,3 @@
-from pygame.locals import *
 import pygame 
 import numpy as np
 class Animate:
@@ -56,7 +55,7 @@ class Animate:
         screen = pygame.display.set_mode((self.window_width, self.window_height))
         screen.fill((255, 255, 255))
         clock = pygame.time.Clock()
-        raw_sprite=pygame.image.load("racecar.png")
+        raw_sprite=pygame.image.load("assets/racecar.png")
         sprite_scale=(self.wheelbase*self.scale_factor)/121
         raw_sprite=raw_sprite.convert_alpha()
         w,h=raw_sprite.get_size()
@@ -137,5 +136,5 @@ class Animate:
         pygame.quit()
 
 if __name__ == "__main__":
-    animation=animate()
+    animation=Animate()
     animation.main_loop()
