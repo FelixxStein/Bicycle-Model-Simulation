@@ -7,7 +7,7 @@ def integrator(derivative_function ,state ,control_inputs, delta_t):
 def tire_function(slip_angle,stiffness_factor,shape_factor,peak_factor,curvature_factor):
     return peak_factor*np.sin(shape_factor*np.arctan(stiffness_factor*slip_angle-curvature_factor*(stiffness_factor*slip_angle-np.arctan(stiffness_factor*slip_angle))))
 
-class vehicle():
+class Vehicle():
     def __init__(self,
                 state,
                 max_speed=100, 
@@ -73,7 +73,7 @@ class vehicle():
     def get_max_steering_angle(self):
         return self.max_steering_angle
 
-class dynamic_vehicle(vehicle):
+class DynamicVehicle(vehicle):
     def __init__(self,
              max_speed=90, 
              starting_vx=0,              

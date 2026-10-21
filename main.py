@@ -3,10 +3,10 @@ import numpy as np
 import vehicle
 from track import track
 import matplotlib.pyplot as plt
-from basic_drive_controller import basic_drive_controller
+from basic_drive_controller.basic_drive_controller import BasicDriveController
 import pandas as pd
 from plot import plot
-from mppi_controller.mppi_controller import mppi_controller
+from mppi_controller.mppi_controller import MPPIController
 from pathlib import Path
 #create car
 car=vehicle.dynamic_vehicle()
@@ -24,7 +24,7 @@ car.set_starting_angle(path)
 car.set_starting_position(path)
 
 ##controller 
-BDC=basic_drive_controller.basic_drive_controller(Track, car.get_max_brake(), car.get_max_acceleration(), car.get_wheelbase(),car.get_max_speed(), car.get_friction_coefficient_front(), car.get_friction_coefficient_rear(),car.get_downforce_factor(), car.get_mass())
+BDC=BasicDriveController.basic_drive_controller(Track, car.get_max_brake(), car.get_max_acceleration(), car.get_wheelbase(),car.get_max_speed(), car.get_friction_coefficient_front(), car.get_friction_coefficient_rear(),car.get_downforce_factor(), car.get_mass())
 
 
 r=0
@@ -62,7 +62,7 @@ cartrace=np.array(cartrace)
 
 
 #Mppi controller test:
-Mppi=mppi_controller(car,Track,number_plans=1000,number_control_steps=67,physics_time_step=0.01,substeps=5,sd_acceleration=2.3544670063559345,temperature_factor=0.18059570323893012,starting_plan=None,seed=1899,ao=3.255868523905106,c_under=1.401774358294363,c_over=1.014917219517641,c_close=0.7200081587015296,c_steer=2.5184027645699096, log_rollouts=True)
+Mppi=MPPIController(car,Track,number_plans=1000,number_control_steps=67,physics_time_step=0.01,substeps=5,sd_acceleration=2.3544670063559345,temperature_factor=0.18059570323893012,starting_plan=None,seed=1899,ao=3.255868523905106,c_under=1.401774358294363,c_over=1.014917219517641,c_close=0.7200081587015296,c_steer=2.5184027645699096, log_rollouts=True)
 index=0
 total_progress=0
 progress_old=0

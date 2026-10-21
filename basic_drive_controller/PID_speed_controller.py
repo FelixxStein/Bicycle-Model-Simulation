@@ -1,6 +1,6 @@
 import numpy as np
 import constants
-class PID_speed_controller:
+class PIDSpeedController:
     def __init__(self,track,max_break,max_acceleration, max_speed,lookahead_distance, max_lateral_acceleration, Kp,Ki,Kd, grip_usage, friction_coefficient, downforce_factor, car_mass):
         self.max_break=max_break
         self.Kp=Kp

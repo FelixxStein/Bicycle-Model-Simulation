@@ -1,5 +1,5 @@
 import numpy as np
-class mppi_controller():
+class MPPIController():
     def __init__(self,
                 car,
                 track,*,

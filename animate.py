@@ -1,7 +1,7 @@
 from pygame.locals import *
 import pygame 
 import numpy as np
-class animate:
+class Animate:
     def __init__(self, path="runs/seed_1900.npz",
                  window_width=1200,
                 window_height=785,
