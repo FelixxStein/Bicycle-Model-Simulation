@@ -14,7 +14,7 @@ class Tuning:
                  physics_time_step=0.01,
                  csv_racetrack="Hockenheim.csv",
                  seed=420,
-                 seeds=[42,1900],
+                 seeds=[25,1,2005],
                  K=20,
                  k=5,
                  max_steps=20000,
@@ -22,10 +22,11 @@ class Tuning:
         self.processes=processes
         self.max_steps=max_steps
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        timestamp=timestamp+".csv"
         REPO_ROOT = Path(__file__).resolve().parent.parent.parent
         self.file_path = REPO_ROOT /"results" / timestamp
         table_row=["generation", "set", "seed","temperature_factor", "ao", "sd_acceleration", "c_under", "c_over","profile_grip_factor", "number_control_steps", "c_close", "c_steer","reason", "progress", "lap_time", "score"]
-        with open(self.file_path, 'a', newline='') as f: csv.writer(f).writerow([*table_row])
+        with open(self.file_path, 'w', newline='') as f: csv.writer(f).writerow([*table_row])
         self.K=K
         self.k=k
         self.rng=np.random.default_rng(seed)
@@ -35,7 +36,7 @@ class Tuning:
         self.csv_racetrack=csv_racetrack
         self.seeds=seeds
         self.log_array=np.array([True,True,True,True,True,False,False,True,True])
-        self.min_values=np.array([0.05,2,0.5,0.3,1,0.8,30,0.1,0.1])
+        self.min_values=np.array([0.05,0.5,0.5,0.3,0.1,0.8,30,0.1,0.1])
         self.max_values=np.array([2,100,5,3,20,1.05,80,2,50])
         self.z_min=np.where(self.log_array,np.log10(self.min_values), self.min_values)
         self.z_max=np.where(self.log_array,np.log10(self.max_values), self.max_values)
@@ -91,6 +92,13 @@ class Tuning:
             current_mean=np.where(self.log_array,10**self.mean_value_array,self.mean_value_array)
             print("score:",mean,"Mean:",current_mean)
 
+    def set_start_median(self):
+        array=[0.18059570323893012,3.255868523905106,2.3544670063559345,1.401774358294363,1.014917219517641,0.9144784340353015,67,0.7200081587015296,2.5184027645699096]
+        self.mean_value_array=np.where(self.log_array,np.log10(array), array)
+        self.o=(self.z_max-self.z_min)/8
+        self.o=np.maximum(self.o,self.o_min)
+
+
 def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps,max_steps):
         temperature_factor=params[0]
         ao=params[1]
@@ -116,6 +124,8 @@ def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps
             score=((track.get_track_length()-total_progress)/33)+200
         return reason, total_progress, time, score
 
+        
+        
 
 
         
