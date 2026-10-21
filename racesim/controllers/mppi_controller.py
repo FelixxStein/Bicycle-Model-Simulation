@@ -62,7 +62,7 @@ class MPPIController():
         self.width_left=self.track.get_distance_left()
         self.width_right=self.track.get_distance_right()
         self.last_steering=0
-        self.current_substep=self.substeps
+        self.current_substep=0
         self.car_controls=[]
 
     def rollout(self,state,V_shape_array):
@@ -109,7 +109,7 @@ class MPPIController():
         return weights
         
     def compute_control(self,state, progress, index):
-        if self.current_substep==self.substeps:
+        if self.current_substep==0:
             noise=np.zeros((self.number_plans,self.number_control_steps,2))
             sd_steering=(self.ao*self.car.get_wheelbase())/np.maximum(5,(self.car.get_velocity()**2))
             sd_steering=np.clip(sd_steering,self.min_sd_steering,self.max_sd_steering)
@@ -159,7 +159,7 @@ class MPPIController():
             self.best_current_plan=np.roll(self.best_current_plan,-1,0)
             self.best_current_plan[-1]=self.best_current_plan[-2]
             self.car_controls=car_controls
-        self.current_substep=((self.current_substep+1)%self.substeps)-1
+        self.current_substep=((self.current_substep+1)%self.substeps)
         return self.car_controls
 
     def get_substep(self):
