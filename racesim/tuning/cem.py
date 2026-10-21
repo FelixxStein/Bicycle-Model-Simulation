@@ -3,7 +3,6 @@ from racesim.track import Track
 from racesim.controllers.mppi_controller import MPPIController
 import numpy as np
 import csv
-import sys
 from racesim.simulate_lap import simulate_lap
 from multiprocessing import Pool
 class Tuning:
@@ -113,8 +112,5 @@ def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps
         return reason, total_progress, time, score
 
 
-if __name__ == "__main__":
-    terminal=int(sys.argv[1])
-    tuning=Tuning(K=18,k=5,max_steps=20000,csv_name="tuning_log_" + str(terminal) + ".csv", seed=terminal, processes=6)
-    tuning.run(50)
+
         

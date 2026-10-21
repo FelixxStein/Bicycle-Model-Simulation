@@ -1,8 +1,9 @@
 import pygame 
 import numpy as np
 class Animate:
-    def __init__(self, path="runs/seed_1900.npz",
-                 window_width=1200,
+    def __init__(self, 
+                path="runs/seed_1900.npz",
+                window_width=1200,
                 window_height=785,
                 scale_factor=6,
                 Look_ahead_car=1,
@@ -16,6 +17,7 @@ class Animate:
         self.min_zoom=min_zoom
         self.max_zoom=max_zoom
         self.data=np.load(path)
+        if self.data["controller"]==MPPI 
         self.path_trajectory_array=self.data["path_trajectory_array"]
         self.weights_array=self.data["weights_array"]
         self.off_track_array=self.data["off_track_array"]
@@ -134,7 +136,3 @@ class Animate:
             pygame.display.flip()
             clock.tick(50)
         pygame.quit()
-
-if __name__ == "__main__":
-    animation=Animate()
-    animation.main_loop()

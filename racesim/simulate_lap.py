@@ -1,5 +1,5 @@
 import numpy as np
-def simulate_lap(car, track, controller, max_steps,dt):
+def simulate_lap(car, track, controller, max_steps=2000,dt=0.01):
     cartrace=[car.get_position()]
     velocity_list=[car.get_velocity()]
     heading_angle=[car.get_yaw()]
