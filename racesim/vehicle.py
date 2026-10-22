@@ -154,11 +154,13 @@ class DynamicVehicle(Vehicle):
         lateral_force_rear=lateral_force_rear*factor_rear
         return longitudinal_tire_force_front,longitudinal_tire_force_rear, lateral_force_front, lateral_force_rear
 
-    def derivative_function_kinematic(self,vx,vy,yaw_rate,acceleration,steering_angle,drag_force, rolling_force):
+    def derivative_function_kinematic(self,vx,vy,yaw_rate,acceleration,steering_angle,drag_force, rolling_force,down_force):
         yaw_rate_target=vx*np.tan(steering_angle)/self.wheel_base
         vy_target=self.COG_to_rear_axis*yaw_rate_target
         vx_dot=acceleration-(drag_force+rolling_force)/self.mass
         vy_dot=(vy_target-vy)/self.relaxation_time
+        a_max=(self.get_min_friction_coefficient()*(self.mass*constants.GRAVITY+down_force))/self.mass
+        vy_dot=np.clip(vy_dot,-a_max,a_max)
         yaw_acceleration=(yaw_rate_target-yaw_rate)/self.relaxation_time
         return vx_dot, vy_dot, yaw_acceleration
 
@@ -196,9 +198,9 @@ class DynamicVehicle(Vehicle):
             rolling_force=self.rolling_resistance_coefficient*(self.mass*constants.GRAVITY+down_force)*np.sign(vx)
             x_dot=vx*np.cos(yaw)-vy*np.sin(yaw)
             y_dot=vx*np.sin(yaw)+vy*np.cos(yaw)
-            vx_dot_kinematic, vy_dot_kinematic, yaw_acceleration_kinematic=self.derivative_function_kinematic(vx,vy,yaw_rate, acceleration,steering_angle,drag_force, rolling_force)
+            vx_dot_kinematic, vy_dot_kinematic, yaw_acceleration_kinematic=self.derivative_function_kinematic(vx,vy,yaw_rate, acceleration,steering_angle,drag_force, rolling_force,down_force)
             vx_dot_dynamic, vy_dot_dynamic, yaw_acceleration_dynamic=self.derivative_function_dynamic(vx,vy,yaw_rate,acceleration,steering_angle,down_force,drag_force,rolling_force)
-            blend_weight=np.clip((vx-self.blend_speed_low)/(self.blend_speed_high-self.blend_speed_low),0,1)
+            blend_weight=np.clip((np.linalg.norm(state[...,3:5], axis=-1)-self.blend_speed_low)/(self.blend_speed_high-self.blend_speed_low),0,1)
             vx_dot=blend_weight*vx_dot_dynamic+(1-blend_weight)*vx_dot_kinematic
             vy_dot=blend_weight*vy_dot_dynamic+(1-blend_weight)*vy_dot_kinematic
             yaw_acceleration=blend_weight*yaw_acceleration_dynamic+(1-blend_weight)*yaw_acceleration_kinematic
