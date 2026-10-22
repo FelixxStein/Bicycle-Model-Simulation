@@ -1,0 +1,15 @@
+{
+    "number_plans": 1000,
+    "number_control_steps": 67,
+    "physics_time_step": 0.01,
+    "substeps": 5,
+    "sd_acceleration": 2.3544670063559345,
+    "temperature_factor": 0.18059570323893012,
+    "starting_plan": null,
+    "ao": 3.255868523905106,
+    "c_under": 1.401774358294363,
+    "c_over": 1.014917219517641,
+    "c_close": 0.7200081587015296,
+    "c_steer": 2.5184027645699096,
+    "profile_grip_factor": 0.9144784340353015
+}
