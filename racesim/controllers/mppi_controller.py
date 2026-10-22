@@ -1,5 +1,5 @@
 import numpy as np
-class mppi_controller():
+class MPPIController():
     def __init__(self,
                 car,
                 track,*,
@@ -24,6 +24,7 @@ class mppi_controller():
                 temperature_epsilon=0.1, 
                 c_steer=10, 
                 log_rollouts=False):
+        self.margin=track.get_margin()
         self.temperature_epsilon=temperature_epsilon
         self.log_rollouts=log_rollouts
         self.off_track_array=[]
@@ -62,6 +63,8 @@ class mppi_controller():
         self.width_left=self.track.get_distance_left()
         self.width_right=self.track.get_distance_right()
         self.last_steering=0
+        self.current_substep=0
+        self.car_controls=[]
 
     def rollout(self,state,V_shape_array):
         n, t, inputs=np.shape(V_shape_array)
@@ -84,7 +87,7 @@ class mppi_controller():
         distance_array=np.zeros(n)
         for i in range(t):
             index, progress, lateral,ontrack=self.track.locate(result[...,i,0:2], index)
-            distance_array+=np.maximum(0,(self.d_safe_min+self.scale_factor_width_speed*np.linalg.norm(result[...,i,3:5],axis=-1))-np.minimum(self.width_left[index]-lateral,self.width_right[index]+lateral))**2
+            distance_array+=np.maximum(0,(self.d_safe_min+self.margin+self.scale_factor_width_speed*np.linalg.norm(result[...,i,3:5],axis=-1))-np.minimum(self.width_left[index]-lateral,self.width_right[index]+lateral))**2
             off_track_arr=np.where((ontrack==False)|(off_track_arr==True),True,False)
             progress_arr=progress_arr+np.where(~ off_track_arr,self.track.progress_difference(last_progress,progress),0)
             last_progress=progress
@@ -107,55 +110,58 @@ class mppi_controller():
         return weights
         
     def compute_control(self,state, progress, index):
-        noise=np.zeros((self.number_plans,self.number_control_steps,2))
-        sd_steering=(self.ao*self.car.get_wheelbase())/np.maximum(5,(self.car.get_velocity()**2))
-        sd_steering=np.clip(sd_steering,self.min_sd_steering,self.max_sd_steering)
-        steering_noise=self.rng.normal(0, sd_steering,(self.number_plans,self.number_control_steps))
-        acceleration_noise=self.rng.normal(0,self.sd_acceleration,(self.number_plans,self.number_control_steps))
-        for i in range(1,self.number_control_steps):
-            steering_noise[...,i]=self.noise_factor*steering_noise[...,i-1]+np.sqrt(1-(self.noise_factor)**2)*steering_noise[...,i]
-            acceleration_noise[...,i]=self.noise_factor*acceleration_noise[...,i-1]+np.sqrt(1-(self.noise_factor)**2)*acceleration_noise[...,i]
-        noise[...,0]+=steering_noise
-        noise[...,1]+=acceleration_noise
-        v_shape_array=self.best_current_plan+noise
-        v_shape_array[..., 0]=np.clip(v_shape_array[..., 0],-self.car.get_max_steering_angle(),self.car.get_max_steering_angle())
-        v_shape_array[..., 1]=np.clip(v_shape_array[..., 1],-self.car.get_max_brake(),self.car.get_max_acceleration())
-        given_sets = np.array([
-            self.best_current_plan,
-            np.stack([
-                self.best_current_plan[..., 0], 
-                np.full((self.number_control_steps), self.car.get_max_acceleration())
-            ], axis=-1),
-            np.stack([
-                self.best_current_plan[..., 0], 
-                np.full((self.number_control_steps), -self.car.get_max_brake())
-            ], axis=-1)
-        ])
-        v_shape_array=np.concatenate((v_shape_array,given_sets),axis=0)
-        result=self.rollout(state,v_shape_array)
-        cost, off_track_arr=self.cost_function(result,progress,index, v_shape_arr=v_shape_array)
-        weights=self.compute_weights(cost, off_track_arr)
-        self.effective_number_of_plans.append(1/np.sum(weights**2))
-        weights_appended=weights[...,None,None]
-        self.best_current_plan=np.sum(v_shape_array*weights_appended,axis=0)
-        car_controls=self.best_current_plan[0]
-        self.last_steering=car_controls[0]
-        if self.log_rollouts==True:
-            #best 30 arrays
-            weights_sorted=np.argsort(-weights)
-            best_thirty=weights_sorted[0:30]
-            #random arrays of rest
-            all_indices=np.arange(len(weights))
-            valid_indices=np.setdiff1d(all_indices,best_thirty)
-            selected_indices=np.concatenate((best_thirty,np.random.choice(valid_indices, size=20, replace=False)))
-            self.off_track_array.append(off_track_arr[selected_indices])
-            self.path_trajectory_array.append(result[selected_indices,...,0:2])
-            selected_weights=weights[selected_indices]/np.max(weights[selected_indices])
-            self.weights_array.append(selected_weights)
-            self.current_trajectory.append(self.rollout(state,self.best_current_plan[None,...])[0,...,0:2])
-        self.best_current_plan=np.roll(self.best_current_plan,-1,0)
-        self.best_current_plan[-1]=self.best_current_plan[-2]
-        return car_controls
+        if self.current_substep==0:
+            noise=np.zeros((self.number_plans,self.number_control_steps,2))
+            sd_steering=(self.ao*self.car.get_wheelbase())/np.maximum(5,(self.car.get_velocity()**2))
+            sd_steering=np.clip(sd_steering,self.min_sd_steering,self.max_sd_steering)
+            steering_noise=self.rng.normal(0, sd_steering,(self.number_plans,self.number_control_steps))
+            acceleration_noise=self.rng.normal(0,self.sd_acceleration,(self.number_plans,self.number_control_steps))
+            for i in range(1,self.number_control_steps):
+                steering_noise[...,i]=self.noise_factor*steering_noise[...,i-1]+np.sqrt(1-(self.noise_factor)**2)*steering_noise[...,i]
+                acceleration_noise[...,i]=self.noise_factor*acceleration_noise[...,i-1]+np.sqrt(1-(self.noise_factor)**2)*acceleration_noise[...,i]
+            noise[...,0]+=steering_noise
+            noise[...,1]+=acceleration_noise
+            v_shape_array=self.best_current_plan+noise
+            v_shape_array[..., 0]=np.clip(v_shape_array[..., 0],-self.car.get_max_steering_angle(),self.car.get_max_steering_angle())
+            v_shape_array[..., 1]=np.clip(v_shape_array[..., 1],-self.car.get_max_brake(),self.car.get_max_acceleration())
+            given_sets = np.array([
+                self.best_current_plan,
+                np.stack([
+                    self.best_current_plan[..., 0], 
+                    np.full((self.number_control_steps), self.car.get_max_acceleration())
+                ], axis=-1),
+                np.stack([
+                    self.best_current_plan[..., 0], 
+                    np.full((self.number_control_steps), -self.car.get_max_brake())
+                ], axis=-1)
+            ])
+            v_shape_array=np.concatenate((v_shape_array,given_sets),axis=0)
+            result=self.rollout(state,v_shape_array)
+            cost, off_track_arr=self.cost_function(result,progress,index, v_shape_arr=v_shape_array)
+            weights=self.compute_weights(cost, off_track_arr)
+            self.effective_number_of_plans.append(1/np.sum(weights**2))
+            weights_appended=weights[...,None,None]
+            self.best_current_plan=np.sum(v_shape_array*weights_appended,axis=0)
+            car_controls=self.best_current_plan[0]
+            self.last_steering=car_controls[0]
+            if self.log_rollouts==True:
+                #best 30 arrays
+                weights_sorted=np.argsort(-weights)
+                best_thirty=weights_sorted[0:30]
+                #random arrays of rest
+                all_indices=np.arange(len(weights))
+                valid_indices=np.setdiff1d(all_indices,best_thirty)
+                selected_indices=np.concatenate((best_thirty,np.random.choice(valid_indices, size=20, replace=False)))
+                self.off_track_array.append(off_track_arr[selected_indices])
+                self.path_trajectory_array.append(result[selected_indices,...,0:2])
+                selected_weights=weights[selected_indices]/np.max(weights[selected_indices])
+                self.weights_array.append(selected_weights)
+                self.current_trajectory.append(self.rollout(state,self.best_current_plan[None,...])[0,...,0:2])
+            self.best_current_plan=np.roll(self.best_current_plan,-1,0)
+            self.best_current_plan[-1]=self.best_current_plan[-2]
+            self.car_controls=car_controls
+        self.current_substep=((self.current_substep+1)%self.substeps)
+        return self.car_controls
 
     def get_substep(self):
         return self.substeps

@@ -1,5 +1,5 @@
 import numpy as np
-import constants
+import racesim.constants as constants
 def integrator(derivative_function ,state ,control_inputs, delta_t):
     change=derivative_function(state,control_inputs)
     state=state+change*delta_t
@@ -7,20 +7,22 @@ def integrator(derivative_function ,state ,control_inputs, delta_t):
 def tire_function(slip_angle,stiffness_factor,shape_factor,peak_factor,curvature_factor):
     return peak_factor*np.sin(shape_factor*np.arctan(stiffness_factor*slip_angle-curvature_factor*(stiffness_factor*slip_angle-np.arctan(stiffness_factor*slip_angle))))
 
-class vehicle():
+class Vehicle():
     def __init__(self,
                 state,
-                max_speed=100, 
-                wheel_base=2, 
-                max_acceleration=14, 
-                max_brake=35,
-                max_steering_angle=0.35):
+                max_speed, 
+                wheel_base, 
+                max_acceleration, 
+                max_brake,
+                max_steering_angle,
+                mass):
         self.state=state
         self.max_speed=max_speed
         self.wheel_base=wheel_base
         self.max_acceleration=max_acceleration
         self.max_brake=max_brake
         self.max_steering_angle=max_steering_angle
+        self.mass=mass
 
     def get_max_acceleration(self):
         return self.max_acceleration
@@ -73,56 +75,18 @@ class vehicle():
     def get_max_steering_angle(self):
         return self.max_steering_angle
 
-    
+    def get_mass(self):
+        return self.mass
 
-
-#doesnt work with current controller anymore, will update it or delete it, currently working on real progress though
-class kinematic_vehicle(vehicle):
+class DynamicVehicle(Vehicle):
     def __init__(self,
-                max_speed=100, 
-                starting_velocity=0, 
-                starting_x=0, 
-                starting_y=0, 
-                starting_steering_angle=0, 
-                starting_yaw=0, 
-                wheel_base=2, 
-                max_acceleration=14, 
-                max_brake=35):
-        state=np.stack([starting_x,starting_y,starting_yaw,starting_velocity],axis=-1, dtype=float)
-        super().__init__(state,max_speed,wheel_base,max_acceleration,max_brake)
-        self.steering_angle = starting_steering_angle
-
-    def derivative_function(self, state, control_inputs):
-        yaw=state[...,2]
-        v=state[...,3]
-        steering_angle=control_inputs[...,0]
-        acceleration=control_inputs[...,1]
-        delta_x = v*np.cos(yaw)
-        delta_y = v*np.sin(yaw)
-        delta_v = acceleration
-        yaw_rate=(v*np.tan(steering_angle))/self.wheel_base
-        return np.stack([delta_x, delta_y, yaw_rate, delta_v],axis=-1)
-
-    def apply_state_limits(self,state):
-            state_copy=np.copy(state)
-            state_copy[...,3]=np.maximum(0,state[...,3])
-            return state_copy
-
-
-    def get_velocity(self):
-        return self.state[...,3]
-
-
-
-class dynamic_vehicle(vehicle):
-    def __init__(self,
-             max_speed=90, 
-             starting_vx=0,              
-             starting_vy=0,              
-             starting_yaw_rate=0,        
-             starting_x=0, 
-             starting_y=0, 
-             starting_yaw=0,  
+             max_speed=90.0, 
+             starting_vx=0.0,              
+             starting_vy=0.0,              
+             starting_yaw_rate=0.0,        
+             starting_x=0.0, 
+             starting_y=0.0, 
+             starting_yaw=0.0,  
              mass=800,
              COG_to_front_axis=2, 
              COG_to_rear_axis=1.5,
@@ -143,17 +107,17 @@ class dynamic_vehicle(vehicle):
              brake_balance_front=0.55,
              relaxation_time=0.05,
              blend_speed_low=3,
-             blend_speed_high=8
+             blend_speed_high=8,
+             max_steering_angle=0.35
              ):
         calculated_wheel_base=COG_to_front_axis+COG_to_rear_axis
         state=np.array([starting_x,starting_y,starting_yaw,starting_vx,starting_vy,starting_yaw_rate])
-        super().__init__(state,max_speed,calculated_wheel_base, max_acceleration, max_brake)
+        super().__init__(state=state,max_speed=max_speed,wheel_base=calculated_wheel_base,max_acceleration=max_acceleration,max_brake=max_brake,max_steering_angle=max_steering_angle,mass=mass)
         self.yaw_moment_of_inertia=yaw_moment_of_inertia
         self.front_cornering_stiffness=front_cornering_stiffness
         self.rear_cornering_stiffness=rear_cornering_stiffness
         self.COG_to_front_axis=COG_to_front_axis
         self.COG_to_rear_axis=COG_to_rear_axis
-        self.mass=mass
         self.friction_coefficient_front=friction_coefficient_front
         self.friction_coefficient_rear=friction_coefficient_rear
         self.shape_factor=shape_factor
@@ -260,9 +224,6 @@ class dynamic_vehicle(vehicle):
 
     def get_downforce_factor(self):
         return self.downforce_factor
-
-    def get_mass(self):
-        return self.mass
 
     def get_yaw_rate(self):
         return self.state[...,5]

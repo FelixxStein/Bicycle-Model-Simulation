@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-class plot:
+class Plot:
     def __init__(self,borderleft,borderright):
         plt.plot(borderleft[:, 0], borderleft[:, 1], color="GRAY")
         plt.plot(borderright[:, 0], borderright[:, 1], color="GRAY")
