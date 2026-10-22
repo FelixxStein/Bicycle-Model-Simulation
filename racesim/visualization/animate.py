@@ -104,7 +104,7 @@ class Animate:
         current_border_left=self.world_to_screen(self.borderleft,self.camera_center)
         
         #draw border
-        pygame.draw.polygon(self.screen,color=(55, 55, 55),points=current_border_left)
+        pygame.draw.polygon(self.screen,color=(22, 22, 22),points=current_border_left)
         pygame.draw.polygon(self.screen,color=(0, 100, 0),points=current_border_right)
         pygame.draw.polygon(self.screen,color="White",points=current_border_left, width=3)
         pygame.draw.polygon(self.screen,color="White",points=current_border_right,width=3)
