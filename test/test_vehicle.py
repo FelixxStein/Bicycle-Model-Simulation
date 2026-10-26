@@ -30,5 +30,30 @@ def test_batch_compatible():
     assert np.allclose(car_2.state, state[1],rtol=0.01), "error at batch compatibility: check steering and transition between dynamic and kinematic model"
     assert np.allclose(car_3.state, state[2],rtol=0.01), "error at batch compatibility: check high vy scenarios"
     assert np.allclose(car_4.state, state[3],rtol=0.01), "error at batch compatibility: check high speed and breaking"
+
+def test_standstill_and_brake():
+    car=vehicle.DynamicVehicle(starting_vy=0,starting_vx=0)
+    for i in range(10):
+        car.time_step(control_inputs=np.array([0,-10]),delta_t=dt)
+    assert np.isclose(car.get_vx(),0,atol=0.000001), "car is getting negative speed from braking"
+
+def test_standstill_and_brake():
+    car=vehicle.DynamicVehicle(starting_vy=0,starting_vx=-5)
+    for i in range(100):
+        car.time_step(control_inputs=np.array([0,-10]),delta_t=dt)
+    assert np.isclose(car.get_vx(),0,atol=0.000001), "car is getting positiv speed from braking"
     
-    
+def test_normal_braking():
+    car=vehicle.DynamicVehicle(starting_vy=0,starting_vx=50)
+    car.time_step(control_inputs=np.array([0,-14]),delta_t=dt)
+    assert (np.isclose(car.get_vx(),50-14*dt,atol=0.1)), "car is instantly stopping"
+    for i in range(500):
+        car.time_step(control_inputs=np.array([0,-14]),delta_t=dt)
+    assert np.isclose(car.get_vx(),0,atol=0.000001), "car is getting negative speed from braking"
+
+def test_spinning_braking():
+    car=vehicle.DynamicVehicle(starting_vy=0,starting_vx=5, starting_yaw_rate=5)
+    for i in range(500):
+        car.time_step(control_inputs=np.array([0,-14]),delta_t=dt)
+    assert np.isclose(car.get_vx(),0,atol=0.000001), "spinning car is a problem"
+
