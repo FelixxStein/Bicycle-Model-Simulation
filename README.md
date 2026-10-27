@@ -147,7 +147,7 @@ S_k = -\text{progress} + C_{crash}\,\mathbb{1}_{crash}
 + c_{steer}\sum_t \left(\frac{\Delta\delta_t}{\delta_{max}}\right)^2
 $$
 
-   A rollout counts as crashed if it gets too close to the track edge **or** spins (faces more than 90° against the driving direction). After a crash its progress is frozen.
+A rollout counts as crashed if it gets too close to the track edge **or** spins (faces more than 90° against the driving direction). After a crash its progress is frozen.
 
 4. **Weight** the rollouts with an adaptive temperature $\lambda$ (scaled by the cost spread of non-crashed rollouts):
 
