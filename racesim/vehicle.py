@@ -149,16 +149,18 @@ class DynamicVehicle(Vehicle):
         self.blend_speed_low=blend_speed_low
         self.COG_height=COG_height
 
-    def calculate_brake_direction_factor(self,vx):
-        brake_direction_factor=vx/self.brake_fade_speed
+    def calculate_brake_direction_factor(self,vx,vy):
+        total_speed=np.sqrt(vx**2+vy**2)
+        denom=np.maximum(total_speed,self.brake_fade_speed)
+        brake_direction_factor=vx/denom
         brake_direction_factor=np.clip(brake_direction_factor,-1,1)
         return brake_direction_factor
     
 
         
-    def friction_circle(self, acceleration,lateral_force_front,lateral_force_rear, front_axle_load,rear_axle_load, vx):
+    def friction_circle(self, acceleration,lateral_force_front,lateral_force_rear, front_axle_load,rear_axle_load, vx,vy):
         longitudinal_force_required=self.mass*acceleration
-        brake_direction_factor=self.calculate_brake_direction_factor(vx=vx)
+        brake_direction_factor=self.calculate_brake_direction_factor(vx=vx, vy=vy)
         longitudinal_tire_force_front=np.where(longitudinal_force_required>0,0,brake_direction_factor*self.brake_balance_front*longitudinal_force_required)
         longitudinal_tire_force_rear=np.where(longitudinal_force_required>0,longitudinal_force_required,brake_direction_factor*(1-self.brake_balance_front)*longitudinal_force_required)
         budget_rear=self.friction_coefficient_rear*rear_axle_load
@@ -176,7 +178,7 @@ class DynamicVehicle(Vehicle):
     def derivative_function_kinematic(self,vx,vy,yaw_rate,acceleration,steering_angle,drag_force, rolling_force,down_force):
         yaw_rate_target=vx*np.tan(steering_angle)/self.wheel_base
         vy_target=self.COG_to_rear_axis*yaw_rate_target
-        brake_direction_factor=self.calculate_brake_direction_factor(vx=vx)
+        brake_direction_factor=self.calculate_brake_direction_factor(vx=vx, vy=vy)
         vx_dot=np.where(acceleration<0,brake_direction_factor*acceleration-(drag_force+rolling_force)/self.mass,acceleration-(drag_force+rolling_force)/self.mass)
         vy_dot=(vy_target-vy)/self.relaxation_time
         a_max=(self.get_min_friction_coefficient()*(self.mass*constants.GRAVITY+down_force))/self.mass
@@ -191,7 +193,8 @@ class DynamicVehicle(Vehicle):
 
 
     def derivative_function_dynamic(self,vx,vy,yaw_rate,acceleration,steering_angle,down_force,drag_force,rolling_force): 
-        load_transfer=(self.mass*acceleration*self.COG_height)/self.wheel_base
+        effective_acceleration=np.where(acceleration<0,acceleration*np.abs(self.calculate_brake_direction_factor(vx=vx,vy=vy)), acceleration)
+        load_transfer=(self.mass*effective_acceleration*self.COG_height)/self.wheel_base
         front_axle_load, rear_axle_load=self.calculate_axle_load(down_force,load_transfer)
         peak_factor_front=self.friction_coefficient_front*front_axle_load
         peak_factor_rear=self.friction_coefficient_rear*rear_axle_load
@@ -204,7 +207,7 @@ class DynamicVehicle(Vehicle):
 
         front_lateral_force=tire_function(front_slip_angle,self.stiffness_factor_front,self.shape_factor,peak_factor_front,self.curvature_factor)
         rear_lateral_force=tire_function(rear_slip_angle,self.stiffness_factor_rear,self.shape_factor,peak_factor_rear, self.curvature_factor)
-        longitudinal_tire_force_front,longitudinal_tire_force_rear, front_lateral_force, rear_lateral_force=self.friction_circle(acceleration, front_lateral_force,rear_lateral_force,front_axle_load,rear_axle_load, vx)
+        longitudinal_tire_force_front,longitudinal_tire_force_rear, front_lateral_force, rear_lateral_force=self.friction_circle(acceleration, front_lateral_force,rear_lateral_force,front_axle_load,rear_axle_load, vx, vy)
         yaw_acceleration=(self.COG_to_front_axis*(longitudinal_tire_force_front*np.sin(steering_angle)+front_lateral_force*np.cos(steering_angle))-self.COG_to_rear_axis*rear_lateral_force)/self.yaw_moment_of_inertia
         vx_dot=(longitudinal_tire_force_front*np.cos(steering_angle)-front_lateral_force*np.sin(steering_angle)+longitudinal_tire_force_rear-drag_force-rolling_force)/self.mass+vy*yaw_rate
         vy_dot=(longitudinal_tire_force_front*np.sin(steering_angle)+front_lateral_force*np.cos(steering_angle)+rear_lateral_force)/self.mass-vx*yaw_rate
