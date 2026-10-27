@@ -14,7 +14,7 @@ def test_sideways_sliding():
     assert np.isclose(deceleration, car.get_min_friction_coefficient()*constants.GRAVITY,rtol=0.2), "sideways slide decelerates faster than tire grip allows"
 
 def test_batch_compatible():
-    state=np.array([[0.0,0.0,0.0,1,0,0],[0.0,0.0,0,5,0,0],[0.0,0.0,0,0,40,0],[0.0,0.0,0.0,40,0,0]])
+    state=np.array([[0.0,0.0,0.0,1,0,0,0],[0.0,0.0,0,5,0,0,0],[0.0,0.0,0,0,40,0,0],[0.0,0.0,0.0,40,0,0,0]])
     control_inputs=np.array([[0.1,7.0],[0.1,0.0],[0.0,0.0],[0.0,-30.0]])
     car_1=vehicle.DynamicVehicle(starting_x=state[0][0],starting_y=state[0][1],starting_vx=state[0][3],starting_vy=state[0][4],starting_yaw=state[0][2],starting_yaw_rate=state[0][5])
     car_2=vehicle.DynamicVehicle(starting_x=state[1][0],starting_y=state[1][1],starting_vx=state[1][3],starting_vy=state[1][4],starting_yaw=state[1][2],starting_yaw_rate=state[1][5])
