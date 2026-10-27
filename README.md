@@ -141,10 +141,10 @@ Model Predictive Path Integral control is a sampling-based MPC: instead of solvi
 3. **Rate** each rollout with a cost function:
 
 $$
-S_k = -\text{progress} + C_{crash}\,\mathbb{1}_{crash}
-- c_{under}\min(v_T, v_{ref}) + c_{over}\max(0, v_T - v_{ref})
-+ c_{close}\sum_t \max(0,\ d_{safe}(v) - d_t)^2
-+ c_{steer}\sum_t \left(\frac{\Delta\delta_t}{\delta_{max}}\right)^2
+S_k = -\text{progress} + C_{crash}\,\mathbb{1}_{crash} -
+c_{under}\min(v_T, v_{ref}) + c_{over}\max(0, v_T - v_{ref}) + 
+c_{close}\sum_t \max(0,\ d_{safe}(v) - d_t)^2 +
+c_{steer}\sum_t \left(\frac{\Delta\delta_t}{\delta_{max}}\right)^2
 $$
 
 A rollout counts as crashed if it gets too close to the track edge **or** spins (faces more than 90° against the driving direction). After a crash its progress is frozen.
