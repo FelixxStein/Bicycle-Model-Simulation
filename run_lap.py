@@ -65,10 +65,10 @@ if __name__ == "__main__":
        "wheelbase":car.get_wheelbase(),
        "controller":args.controller}
     if args.log and args.controller=="mppi":
-        path_trajectory_array, weights_array, off_track_array,current_trajectory=controller.get_logs() 
+        path_trajectory_array, weights_array, crash_arr,current_trajectory=controller.get_logs() 
         d["path_trajectory_array"]=path_trajectory_array
         d["weights_array"]=weights_array
-        d["off_track_array"]=off_track_array
+        d["crash_arr"]=crash_arr
         d["current_trajectory"]=current_trajectory
     if args.controller=="mppi":
         d["substeps"]=controller.get_substep()

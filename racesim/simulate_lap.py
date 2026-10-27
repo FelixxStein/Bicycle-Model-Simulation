@@ -14,6 +14,7 @@ def simulate_lap(car, track, controller, max_steps=20000,dt=0.01):
     while True:
         velocity=car.get_velocity()
         index, progress,_,ontrack=track.locate(car.get_position(),index)
+        backwards=track.facing_backwards(index, car.get_yaw())
         if velocity<1:
             stuck+=1
         else: 
@@ -32,6 +33,9 @@ def simulate_lap(car, track, controller, max_steps=20000,dt=0.01):
             break
         if ontrack==False:
             reason=2
+            break
+        if backwards:
+            reason=5
             break
         r+=1
         control_inputs=controller.compute_control(car.get_state(),progress,index)

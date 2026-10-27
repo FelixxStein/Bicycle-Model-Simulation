@@ -22,7 +22,7 @@ class Animate:
             self.has_rollouts=True
             self.path_trajectory_array=self.data["path_trajectory_array"]
             self.weights_array=self.data["weights_array"]
-            self.off_track_array=self.data["off_track_array"]
+            self.crash_arr=self.data["crash_arr"]
             self.current_trajectory=self.data["current_trajectory"]
             self.substeps=self.data["substeps"]
         self.upscale_car=upscale_car
@@ -118,7 +118,7 @@ class Animate:
         self.transp.fill((0, 0, 0, 0))
         for p in range(len(self.path_trajectory_array[0,...,0])-1,-1,-1):
             alpha=max(int(self.weights_array[self.k][p] * 255),20)
-            if self.off_track_array[self.k][p]==False: line_color=(0, 255, 255, alpha)
+            if self.crash_arr[self.k][p]==False: line_color=(0, 255, 255, alpha)
             else: line_color=(255, 50, 50, 150)
             pygame.draw.lines(self.transp, line_color, False, Mppi_lines[p], 2)
         self.screen.blit(self.transp, (0, 0))
