@@ -100,6 +100,72 @@ $$
 $$
 \begin{aligned}
 m(\dot v_x - v_y r) &= F_{x,f}\cos\delta - F_{y,f}\sin\delta + F_{x,r} - F_{drag} - F_{roll} \\
-m(\dot v_y + v_x r) &= F_{x,f}\sin\delta +
+m(\dot v_y + v_x r) &= F_{x,f}\sin\delta + F_{y,f}\cos\delta + F_{y,r} \\
+I_z \dot r &= l_f\,(F_{x,f}\sin\delta + F_{y,f}\cos\delta) - l_r F_{y,r}
+\end{aligned}
+$$
+
+Axle loads include static weight distribution, longitudinal load transfer and aerodynamic downforce ($\propto v^2$). Brakes act like friction (always against the direction of motion), drive force acts on the rear axle only.
+
+**Steering actuator.** The wheels follow the steering target with a time constant and a rate limit:
+
+$$
+\dot\delta = \mathrm{clip}\!\left(\frac{\delta_{target} - \delta}{\tau},\ -\dot\delta_{max},\ \dot\delta_{max}\right)
+$$
+
+**Low-speed blending.** Below 8 m/s the dynamic model is smoothly blended with a kinematic model (fully kinematic below 3 m/s), because tire slip angles become ill-conditioned near standstill.
+
+### 2. Track & speed profile
+
+Tracks come from the TUMFTM racetrack database (centerline + left/right widths). From the curvature $\kappa$ a reference speed profile is computed. The maximum cornering speed balances lateral acceleration against grip incl. downforce ($k_L = \tfrac12\rho c_L A$):
+
+$$
+v_{corner}^2 = \frac{\mu g}{|\kappa| - \mu k_L / m}
+$$
+
+A backward pass then adds braking zones, so the profile is always reachable with the available braking:
+
+$$
+v_i = \min\!\left(v_{corner,i},\ \sqrt{v_{i+1}^2 + 2\,a_{brake}(v_{i+1})\,\Delta s}\right)
+$$
+
+### 3. MPPI controller
+
+Model Predictive Path Integral control is a sampling-based MPC: instead of solving an optimization problem, it simulates many possible futures and blends the good ones. Every 0.05 s it runs this loop:
+
+1. **Sample** $N = 1000$ control sequences around the current plan $U$ (horizon ≈ 3 s):
+   $V_k = U + \varepsilon_k$, with time-correlated noise
+   $\varepsilon_t = \alpha\,\varepsilon_{t-1} + \sqrt{1-\alpha^2}\,w_t$ ($\alpha = 0.9$) for smooth inputs.
+   The steering noise shrinks with speed, $\sigma_\delta \propto 1/v^2$. Three candidate plans (previous plan, full throttle, full brake) are always added.
+2. **Simulate** all sequences in parallel with the same vehicle model (batched NumPy).
+3. **Rate** each rollout with a cost function:
+
+$$
+S_k = -\text{progress} + C_{crash}\,\mathbb{1}_{crash}
+- c_{under}\min(v_T, v_{ref}) + c_{over}\max(0, v_T - v_{ref})
++ c_{close}\sum_t \max(0,\ d_{safe}(v) - d_t)^2
++ c_{steer}\sum_t \left(\frac{\Delta\delta_t}{\delta_{max}}\right)^2
+$$
+
+   A rollout counts as crashed if it gets too close to the track edge **or** spins (faces more than 90° against the driving direction). After a crash its progress is frozen.
+
+4. **Weight** the rollouts with an adaptive temperature $\lambda$ (scaled by the cost spread of non-crashed rollouts):
+
+$$
+w_k = \frac{\exp\!\big(-(S_k - S_{min})/\lambda\big)}{\sum_j \exp\!\big(-(S_j - S_{min})/\lambda\big)}
+$$
+
+5. **Update & execute:** $U \leftarrow \sum_k w_k V_k$, apply the first control, shift the plan by one step and repeat.
+
+### 4. Hyperparameter tuning (Cross-Entropy Method)
+
+MPPI has many coupled parameters, so they are tuned automatically with the Cross-Entropy Method:
+
+1. Sample $K$ parameter sets from a Gaussian (scale-like parameters in log space).
+2. Drive a full lap with each set on several random seeds (in parallel).
+3. Score each lap: lap time if finished, otherwise $200 + \text{remaining distance}/33$, so going further is always better than crashing early.
+4. Fit the new mean and standard deviation to the $k$ best sets (with a minimum spread) and repeat.
+
+Tuned parameters: temperature factor, steering noise scale, acceleration noise, terminal speed weights $c_{under}$/$c_{over}$, speed profile grip factor, horizon length, edge penalty $c_{close}$ and steering smoothness $c_{steer}$.
 ## Acknowledgements
 Track data sourced from [TUMFTM/racetrack-database](https://github.com/TUMFTM/racetrack-database).
