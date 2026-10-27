@@ -15,7 +15,13 @@ class Vehicle():
                 max_acceleration, 
                 max_brake,
                 max_steering_angle,
-                mass):
+                mass,
+                max_steering_rate,
+                steering_time_constant,
+                standstill_threshold=1):
+        self.max_steering_rate=max_steering_rate
+        self.steering_time_constant=steering_time_constant
+        self.standstill_threshold=standstill_threshold
         self.state=state
         self.max_speed=max_speed
         self.wheel_base=wheel_base
@@ -34,9 +40,9 @@ class Vehicle():
         copy_control_inputs=control_inputs.copy()
         copy_control_inputs[...,0]=self.update_steering_angle(copy_control_inputs[...,0])
         copy_control_inputs[...,1]=self.update_acceleration(copy_control_inputs[...,1])
-        state=integrator(self.derivative_function,state,copy_control_inputs, delta_t)
-        state=self.apply_state_limits(state)
-        return state
+        state_after=integrator(self.derivative_function,state,copy_control_inputs, delta_t)
+        state_after[...,3]=np.where((copy_control_inputs[...,1]<0)&(np.sign(state[...,3])!=np.sign(state_after[...,3]))&(np.linalg.norm(state[...,3:5], axis=-1)<=self.standstill_threshold),0,state_after[...,3])
+        return state_after
 
 
     def time_step(self,control_inputs, delta_t):
@@ -108,11 +114,16 @@ class DynamicVehicle(Vehicle):
              relaxation_time=0.05,
              blend_speed_low=3,
              blend_speed_high=8,
-             max_steering_angle=0.35
+             max_steering_angle=0.35,
+             starting_steering_angle=0.0,
+             max_steering_rate=1.0,
+             steering_time_constant=0.05,
+             brake_fade_speed=0.5 
              ):
+        self.brake_fade_speed=brake_fade_speed
         calculated_wheel_base=COG_to_front_axis+COG_to_rear_axis
-        state=np.array([starting_x,starting_y,starting_yaw,starting_vx,starting_vy,starting_yaw_rate])
-        super().__init__(state=state,max_speed=max_speed,wheel_base=calculated_wheel_base,max_acceleration=max_acceleration,max_brake=max_brake,max_steering_angle=max_steering_angle,mass=mass)
+        state=np.array([starting_x,starting_y,starting_yaw,starting_vx,starting_vy,starting_yaw_rate,starting_steering_angle])
+        super().__init__(state=state,max_speed=max_speed,wheel_base=calculated_wheel_base,max_acceleration=max_acceleration,max_brake=max_brake,max_steering_angle=max_steering_angle,mass=mass, max_steering_rate=max_steering_rate, steering_time_constant=steering_time_constant)
         self.yaw_moment_of_inertia=yaw_moment_of_inertia
         self.front_cornering_stiffness=front_cornering_stiffness
         self.rear_cornering_stiffness=rear_cornering_stiffness
@@ -137,11 +148,21 @@ class DynamicVehicle(Vehicle):
         self.blend_speed_high=blend_speed_high
         self.blend_speed_low=blend_speed_low
         self.COG_height=COG_height
+
+    def calculate_brake_direction_factor(self,vx,vy):
+        total_speed=np.sqrt(vx**2+vy**2)
+        denom=np.maximum(total_speed,self.brake_fade_speed)
+        brake_direction_factor=vx/denom
+        brake_direction_factor=np.clip(brake_direction_factor,-1,1)
+        return brake_direction_factor
+    
+
         
-    def friction_circle(self, acceleration,lateral_force_front,lateral_force_rear, front_axle_load,rear_axle_load):
+    def friction_circle(self, acceleration,lateral_force_front,lateral_force_rear, front_axle_load,rear_axle_load, vx,vy):
         longitudinal_force_required=self.mass*acceleration
-        longitudinal_tire_force_front=np.where(longitudinal_force_required>0,0,self.brake_balance_front*longitudinal_force_required)
-        longitudinal_tire_force_rear=np.where(longitudinal_force_required>0,longitudinal_force_required,(1-self.brake_balance_front)*longitudinal_force_required)
+        brake_direction_factor=self.calculate_brake_direction_factor(vx=vx, vy=vy)
+        longitudinal_tire_force_front=np.where(longitudinal_force_required>0,0,brake_direction_factor*self.brake_balance_front*longitudinal_force_required)
+        longitudinal_tire_force_rear=np.where(longitudinal_force_required>0,longitudinal_force_required,brake_direction_factor*(1-self.brake_balance_front)*longitudinal_force_required)
         budget_rear=self.friction_coefficient_rear*rear_axle_load
         budget_front=self.friction_coefficient_front*front_axle_load
         longitudinal_tire_force_rear=np.clip(longitudinal_tire_force_rear,-budget_rear,budget_rear)
@@ -154,11 +175,14 @@ class DynamicVehicle(Vehicle):
         lateral_force_rear=lateral_force_rear*factor_rear
         return longitudinal_tire_force_front,longitudinal_tire_force_rear, lateral_force_front, lateral_force_rear
 
-    def derivative_function_kinematic(self,vx,vy,yaw_rate,acceleration,steering_angle,drag_force, rolling_force):
+    def derivative_function_kinematic(self,vx,vy,yaw_rate,acceleration,steering_angle,drag_force, rolling_force,down_force):
         yaw_rate_target=vx*np.tan(steering_angle)/self.wheel_base
         vy_target=self.COG_to_rear_axis*yaw_rate_target
-        vx_dot=acceleration-(drag_force+rolling_force)/self.mass
+        brake_direction_factor=self.calculate_brake_direction_factor(vx=vx, vy=vy)
+        vx_dot=np.where(acceleration<0,brake_direction_factor*acceleration-(drag_force+rolling_force)/self.mass,acceleration-(drag_force+rolling_force)/self.mass)
         vy_dot=(vy_target-vy)/self.relaxation_time
+        a_max=(self.get_min_friction_coefficient()*(self.mass*constants.GRAVITY+down_force))/self.mass
+        vy_dot=np.clip(vy_dot,-a_max,a_max)
         yaw_acceleration=(yaw_rate_target-yaw_rate)/self.relaxation_time
         return vx_dot, vy_dot, yaw_acceleration
 
@@ -169,40 +193,53 @@ class DynamicVehicle(Vehicle):
 
 
     def derivative_function_dynamic(self,vx,vy,yaw_rate,acceleration,steering_angle,down_force,drag_force,rolling_force): 
-        load_transfer=(self.mass*acceleration*self.COG_height)/self.wheel_base
+        effective_acceleration=np.where(acceleration<0,acceleration*np.abs(self.calculate_brake_direction_factor(vx=vx,vy=vy)), acceleration)
+        load_transfer=(self.mass*effective_acceleration*self.COG_height)/self.wheel_base
         front_axle_load, rear_axle_load=self.calculate_axle_load(down_force,load_transfer)
         peak_factor_front=self.friction_coefficient_front*front_axle_load
         peak_factor_rear=self.friction_coefficient_rear*rear_axle_load
-        front_slip_angle=steering_angle-np.arctan((vy+self.COG_to_front_axis*yaw_rate)/np.maximum(0.5,vx))
-        rear_slip_angle=-np.arctan((vy-(self.COG_to_rear_axis*yaw_rate))/np.maximum(0.5,vx))
+        front_lateral_speed=vy+self.COG_to_front_axis*yaw_rate
+        rear_lateral_speed=vy-(self.COG_to_rear_axis*yaw_rate)
+        along_wheel=vx*np.cos(steering_angle)+front_lateral_speed*np.sin(steering_angle)
+        across_wheel=-vx*np.sin(steering_angle)+front_lateral_speed*np.cos(steering_angle)
+        front_slip_angle=-np.arctan((across_wheel)/np.maximum(0.5,np.abs(along_wheel)))
+        rear_slip_angle=-np.arctan((rear_lateral_speed)/np.maximum(0.5,np.abs(vx)))
+
         front_lateral_force=tire_function(front_slip_angle,self.stiffness_factor_front,self.shape_factor,peak_factor_front,self.curvature_factor)
         rear_lateral_force=tire_function(rear_slip_angle,self.stiffness_factor_rear,self.shape_factor,peak_factor_rear, self.curvature_factor)
-        longitudinal_tire_force_front,longitudinal_tire_force_rear, front_lateral_force, rear_lateral_force=self.friction_circle(acceleration, front_lateral_force,rear_lateral_force,front_axle_load,rear_axle_load)
+        longitudinal_tire_force_front,longitudinal_tire_force_rear, front_lateral_force, rear_lateral_force=self.friction_circle(acceleration, front_lateral_force,rear_lateral_force,front_axle_load,rear_axle_load, vx, vy)
         yaw_acceleration=(self.COG_to_front_axis*(longitudinal_tire_force_front*np.sin(steering_angle)+front_lateral_force*np.cos(steering_angle))-self.COG_to_rear_axis*rear_lateral_force)/self.yaw_moment_of_inertia
         vx_dot=(longitudinal_tire_force_front*np.cos(steering_angle)-front_lateral_force*np.sin(steering_angle)+longitudinal_tire_force_rear-drag_force-rolling_force)/self.mass+vy*yaw_rate
         vy_dot=(longitudinal_tire_force_front*np.sin(steering_angle)+front_lateral_force*np.cos(steering_angle)+rear_lateral_force)/self.mass-vx*yaw_rate
         return vx_dot, vy_dot, yaw_acceleration
-        
+
+    def calculate_steering_rate(self,wanted_steering_angle, current_steering_angle):
+        steering_rate=(wanted_steering_angle-current_steering_angle)/self.steering_time_constant
+        steering_rate=np.clip(steering_rate, -self.max_steering_rate,self.max_steering_rate)
+        return steering_rate
+
 
     def derivative_function(self,state, control_inputs):
             yaw=state[...,2]
             vx=state[...,3]
             vy=state[...,4]
             yaw_rate=state[...,5]
-            steering_angle=control_inputs[...,0]
+            current_steering_angle=state[...,6]
+            wanted_steering_angle=control_inputs[...,0]
             acceleration=control_inputs[...,1]
             down_force=self.downforce_factor*(vx**2)
             drag_force=self.drag_constant*vx*abs(vx)
             rolling_force=self.rolling_resistance_coefficient*(self.mass*constants.GRAVITY+down_force)*np.sign(vx)
             x_dot=vx*np.cos(yaw)-vy*np.sin(yaw)
             y_dot=vx*np.sin(yaw)+vy*np.cos(yaw)
-            vx_dot_kinematic, vy_dot_kinematic, yaw_acceleration_kinematic=self.derivative_function_kinematic(vx,vy,yaw_rate, acceleration,steering_angle,drag_force, rolling_force)
-            vx_dot_dynamic, vy_dot_dynamic, yaw_acceleration_dynamic=self.derivative_function_dynamic(vx,vy,yaw_rate,acceleration,steering_angle,down_force,drag_force,rolling_force)
-            blend_weight=np.clip((vx-self.blend_speed_low)/(self.blend_speed_high-self.blend_speed_low),0,1)
+            vx_dot_kinematic, vy_dot_kinematic, yaw_acceleration_kinematic=self.derivative_function_kinematic(vx,vy,yaw_rate, acceleration,current_steering_angle,drag_force, rolling_force,down_force)
+            vx_dot_dynamic, vy_dot_dynamic, yaw_acceleration_dynamic=self.derivative_function_dynamic(vx,vy,yaw_rate,acceleration,current_steering_angle,down_force,drag_force,rolling_force)
+            blend_weight=np.clip((np.linalg.norm(state[...,3:5], axis=-1)-self.blend_speed_low)/(self.blend_speed_high-self.blend_speed_low),0,1)
             vx_dot=blend_weight*vx_dot_dynamic+(1-blend_weight)*vx_dot_kinematic
             vy_dot=blend_weight*vy_dot_dynamic+(1-blend_weight)*vy_dot_kinematic
             yaw_acceleration=blend_weight*yaw_acceleration_dynamic+(1-blend_weight)*yaw_acceleration_kinematic
-            return np.stack([x_dot,y_dot,yaw_rate,vx_dot,vy_dot,yaw_acceleration],axis=-1,dtype=float)
+            steering_rate=self.calculate_steering_rate(wanted_steering_angle=wanted_steering_angle,current_steering_angle=current_steering_angle)
+            return np.stack([x_dot,y_dot,yaw_rate,vx_dot,vy_dot,yaw_acceleration, steering_rate],axis=-1,dtype=float)
             
 
     def get_velocity(self):
@@ -210,11 +247,6 @@ class DynamicVehicle(Vehicle):
 
     def get_vx(self):
         return self.state[...,3]
-
-    def apply_state_limits(self,state):
-        copy_state=np.copy(state)
-        copy_state[...,3]=np.maximum(0,state[...,3])
-        return copy_state
 
     def get_friction_coefficient_front(self):
         return self.friction_coefficient_front
@@ -230,3 +262,6 @@ class DynamicVehicle(Vehicle):
 
     def get_min_friction_coefficient(self):
         return min(self.friction_coefficient_front, self.friction_coefficient_rear)
+
+    def get_current_steering_rate(self):
+        return self.state[...,6]

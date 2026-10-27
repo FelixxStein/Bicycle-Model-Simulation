@@ -4,6 +4,7 @@ def simulate_lap(car, track, controller, max_steps=20000,dt=0.01):
     velocity_list=[car.get_velocity()]
     heading_angle=[car.get_yaw()]
     controls=[[0,0]]
+    current_steering_rate=[car.get_current_steering_rate()]
     index=0
     stuck=0
     progress_stuck=0
@@ -13,6 +14,7 @@ def simulate_lap(car, track, controller, max_steps=20000,dt=0.01):
     while True:
         velocity=car.get_velocity()
         index, progress,_,ontrack=track.locate(car.get_position(),index)
+        backwards=track.facing_backwards(index, car.get_yaw())
         if velocity<1:
             stuck+=1
         else: 
@@ -32,6 +34,9 @@ def simulate_lap(car, track, controller, max_steps=20000,dt=0.01):
         if ontrack==False:
             reason=2
             break
+        if backwards:
+            reason=5
+            break
         r+=1
         control_inputs=controller.compute_control(car.get_state(),progress,index)
         car.time_step(control_inputs,dt)
@@ -39,6 +44,7 @@ def simulate_lap(car, track, controller, max_steps=20000,dt=0.01):
         velocity_list.append(car.get_velocity())
         heading_angle.append(car.get_yaw())
         controls.append(control_inputs)
+        current_steering_rate.append(car.get_current_steering_rate())
     cartrace=np.stack(cartrace)
     velocity_list=np.stack(velocity_list)
     heading_angle=np.stack(heading_angle)

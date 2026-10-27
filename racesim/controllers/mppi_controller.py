@@ -83,24 +83,29 @@ class MPPIController():
         index=start_index
         progress_arr=np.zeros(n)
         off_track_arr=np.full(n,False)
+        spin_arr=np.full(n,False)
+        crash_array=np.full(n,False)
         last_progress=start_progress
         distance_array=np.zeros(n)
         for i in range(t):
             index, progress, lateral,ontrack=self.track.locate(result[...,i,0:2], index)
+            spin=self.track.facing_backwards(index, result[...,i,2])
             distance_array+=np.maximum(0,(self.d_safe_min+self.margin+self.scale_factor_width_speed*np.linalg.norm(result[...,i,3:5],axis=-1))-np.minimum(self.width_left[index]-lateral,self.width_right[index]+lateral))**2
             off_track_arr=np.where((ontrack==False)|(off_track_arr==True),True,False)
-            progress_arr=progress_arr+np.where(~ off_track_arr,self.track.progress_difference(last_progress,progress),0)
+            spin_arr=np.where((spin==True)|(spin_arr==True),True,False)
+            crash_array=spin_arr|off_track_arr|crash_array
+            progress_arr=progress_arr+np.where((~crash_array),self.track.progress_difference(last_progress,progress),0)
             last_progress=progress
         v_end=np.linalg.norm(result[...,-1,3:5],axis=-1)
         v_allowed=self.v_allowed[index]
         steering_diff=np.sum(((np.diff(v_shape_arr[...,0],axis=1,prepend=self.last_steering))/self.car.get_max_steering_angle())**2,axis=1)
-        cost=np.where(off_track_arr==True,-progress_arr+self.crash_penalty,-progress_arr)-self.c_under*np.minimum(v_end, v_allowed)+self.c_over*np.maximum(0,v_end-v_allowed)+self.c_close*distance_array+self.c_steer*steering_diff
-        self.crashrate.append(np.sum(off_track_arr)/len(off_track_arr))
-        return cost, off_track_arr
+        cost=np.where(crash_array,-progress_arr+self.crash_penalty,-progress_arr)-self.c_under*np.minimum(v_end, v_allowed)+self.c_over*np.maximum(0,v_end-v_allowed)+self.c_close*distance_array+self.c_steer*steering_diff
+        self.crashrate.append(np.sum(crash_array)/len(crash_array))
+        return cost, crash_array
 
-    def compute_weights(self,costs, off_track_arr):
-        if np.any(~ off_track_arr):
-            spread=np.std(costs[~ off_track_arr])
+    def compute_weights(self,costs, crash_array):
+        if np.any(~ crash_array):
+            spread=np.std(costs[~ crash_array])
         else:
             spread=np.std(costs)
         temperature=self.temperature_factor*spread+self.temperature_epsilon
@@ -137,8 +142,8 @@ class MPPIController():
             ])
             v_shape_array=np.concatenate((v_shape_array,given_sets),axis=0)
             result=self.rollout(state,v_shape_array)
-            cost, off_track_arr=self.cost_function(result,progress,index, v_shape_arr=v_shape_array)
-            weights=self.compute_weights(cost, off_track_arr)
+            cost, crash_array=self.cost_function(result,progress,index, v_shape_arr=v_shape_array)
+            weights=self.compute_weights(cost, crash_array)
             self.effective_number_of_plans.append(1/np.sum(weights**2))
             weights_appended=weights[...,None,None]
             self.best_current_plan=np.sum(v_shape_array*weights_appended,axis=0)
@@ -152,7 +157,7 @@ class MPPIController():
                 all_indices=np.arange(len(weights))
                 valid_indices=np.setdiff1d(all_indices,best_thirty)
                 selected_indices=np.concatenate((best_thirty,np.random.choice(valid_indices, size=20, replace=False)))
-                self.off_track_array.append(off_track_arr[selected_indices])
+                self.off_track_array.append(crash_array[selected_indices])
                 self.path_trajectory_array.append(result[selected_indices,...,0:2])
                 selected_weights=weights[selected_indices]/np.max(weights[selected_indices])
                 self.weights_array.append(selected_weights)

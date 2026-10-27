@@ -73,7 +73,6 @@ class Track:
         v_allowed=np.zeros((len(self.midline)))
         v_allowed[-1]=100
         friction_factor=friction_coefficient*profile_grip_factor
-        planner_break=friction_factor*constants.GRAVITY
         denom=np.maximum((np.abs(curvature)-(friction_factor*downforce_factor/mass)),1e-5)
         v_corner=np.minimum(np.sqrt(friction_factor*constants.GRAVITY/denom),v_max)
         for i in range(2*len(self.midline)-1,-1,-1):
@@ -114,6 +113,12 @@ class Track:
     def on_track(self,index,lateral, margin):
         return (-(self.w_tr_right_m[index]-margin)<= lateral) & (self.w_tr_left_m[index]-margin>=lateral)
 
+    def facing_backwards(self, index, yaw):
+        heading_direction_1=np.cos(yaw)
+        heading_direction_2=np.sin(yaw)
+        heading_direction=np.stack((heading_direction_1,heading_direction_2), axis=-1)
+        spin=np.sum(heading_direction*self.tangent[index], axis=-1)
+        return spin < 0 
 
     def progress_difference(self,progress_start, progress_end):
         progress=progress_end-progress_start
@@ -153,4 +158,6 @@ class Track:
     def get_margin(self):
         return self.margin
 
+    def get_tangent(self):
+        return self.tangent
 
