@@ -117,8 +117,10 @@ class DynamicVehicle(Vehicle):
              max_steering_angle=0.35,
              starting_steering_angle=0.0,
              max_steering_rate=1.0,
-             steering_time_constant=0.05
+             steering_time_constant=0.05,
+             brake_fade_speed=0.5 
              ):
+        self.brake_fade_speed=brake_fade_speed
         calculated_wheel_base=COG_to_front_axis+COG_to_rear_axis
         state=np.array([starting_x,starting_y,starting_yaw,starting_vx,starting_vy,starting_yaw_rate,starting_steering_angle])
         super().__init__(state=state,max_speed=max_speed,wheel_base=calculated_wheel_base,max_acceleration=max_acceleration,max_brake=max_brake,max_steering_angle=max_steering_angle,mass=mass, max_steering_rate=max_steering_rate, steering_time_constant=steering_time_constant)
@@ -146,11 +148,19 @@ class DynamicVehicle(Vehicle):
         self.blend_speed_high=blend_speed_high
         self.blend_speed_low=blend_speed_low
         self.COG_height=COG_height
+
+    def calculate_brake_direction_factor(self,vx):
+        brake_direction_factor=vx/self.brake_fade_speed
+        brake_direction_factor=np.clip(brake_direction_factor,-1,1)
+        return brake_direction_factor
+    
+
         
     def friction_circle(self, acceleration,lateral_force_front,lateral_force_rear, front_axle_load,rear_axle_load, vx):
         longitudinal_force_required=self.mass*acceleration
-        longitudinal_tire_force_front=np.where(longitudinal_force_required>0,0,np.sign(vx)*self.brake_balance_front*longitudinal_force_required)
-        longitudinal_tire_force_rear=np.where(longitudinal_force_required>0,longitudinal_force_required,np.sign(vx)*(1-self.brake_balance_front)*longitudinal_force_required)
+        brake_direction_factor=self.calculate_brake_direction_factor(vx=vx)
+        longitudinal_tire_force_front=np.where(longitudinal_force_required>0,0,brake_direction_factor*self.brake_balance_front*longitudinal_force_required)
+        longitudinal_tire_force_rear=np.where(longitudinal_force_required>0,longitudinal_force_required,brake_direction_factor*(1-self.brake_balance_front)*longitudinal_force_required)
         budget_rear=self.friction_coefficient_rear*rear_axle_load
         budget_front=self.friction_coefficient_front*front_axle_load
         longitudinal_tire_force_rear=np.clip(longitudinal_tire_force_rear,-budget_rear,budget_rear)
@@ -166,7 +176,8 @@ class DynamicVehicle(Vehicle):
     def derivative_function_kinematic(self,vx,vy,yaw_rate,acceleration,steering_angle,drag_force, rolling_force,down_force):
         yaw_rate_target=vx*np.tan(steering_angle)/self.wheel_base
         vy_target=self.COG_to_rear_axis*yaw_rate_target
-        vx_dot=np.where(acceleration<0,np.sign(vx)*acceleration-(drag_force+rolling_force)/self.mass,acceleration-(drag_force+rolling_force)/self.mass)
+        brake_direction_factor=self.calculate_brake_direction_factor(vx=vx)
+        vx_dot=np.where(acceleration<0,brake_direction_factor*acceleration-(drag_force+rolling_force)/self.mass,acceleration-(drag_force+rolling_force)/self.mass)
         vy_dot=(vy_target-vy)/self.relaxation_time
         a_max=(self.get_min_friction_coefficient()*(self.mass*constants.GRAVITY+down_force))/self.mass
         vy_dot=np.clip(vy_dot,-a_max,a_max)
