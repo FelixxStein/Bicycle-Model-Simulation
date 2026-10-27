@@ -177,8 +177,8 @@ class DynamicVehicle(Vehicle):
         front_axle_load, rear_axle_load=self.calculate_axle_load(down_force,load_transfer)
         peak_factor_front=self.friction_coefficient_front*front_axle_load
         peak_factor_rear=self.friction_coefficient_rear*rear_axle_load
-        front_slip_angle=steering_angle-np.arctan((vy+self.COG_to_front_axis*yaw_rate)/np.maximum(0.5,vx))
-        rear_slip_angle=-np.arctan((vy-(self.COG_to_rear_axis*yaw_rate))/np.maximum(0.5,vx))
+        front_slip_angle=steering_angle-np.arctan((vy+self.COG_to_front_axis*yaw_rate)/np.maximum(0.5,np.abs(vx)))
+        rear_slip_angle=-np.arctan((vy-(self.COG_to_rear_axis*yaw_rate))/np.maximum(0.5,np.abs(vx)))
         front_lateral_force=tire_function(front_slip_angle,self.stiffness_factor_front,self.shape_factor,peak_factor_front,self.curvature_factor)
         rear_lateral_force=tire_function(rear_slip_angle,self.stiffness_factor_rear,self.shape_factor,peak_factor_rear, self.curvature_factor)
         longitudinal_tire_force_front,longitudinal_tire_force_rear, front_lateral_force, rear_lateral_force=self.friction_circle(acceleration, front_lateral_force,rear_lateral_force,front_axle_load,rear_axle_load, vx)
