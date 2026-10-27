@@ -93,9 +93,9 @@ class Tuning:
             print("score:",mean,"Mean:",current_mean)
 
     def set_start_median(self):
-        array=[0.18059570323893012,3.255868523905106,2.3544670063559345,1.401774358294363,1.014917219517641,0.9144784340353015,67,0.7200081587015296,2.5184027645699096]
+        array=[0.67311357,3.00287215,2.31400557,1.16107378,0.83165516,0.89143326,56.84026243,0.76538571,2.66671344]
         self.mean_value_array=np.where(self.log_array,np.log10(array), array)
-        self.o=(self.z_max-self.z_min)/8
+        self.o=(self.z_max-self.z_min)/6
         self.o=np.maximum(self.o,self.o_min)
 
 
