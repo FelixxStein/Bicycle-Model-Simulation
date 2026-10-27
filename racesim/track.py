@@ -73,7 +73,6 @@ class Track:
         v_allowed=np.zeros((len(self.midline)))
         v_allowed[-1]=100
         friction_factor=friction_coefficient*profile_grip_factor
-        planner_break=friction_factor*constants.GRAVITY
         denom=np.maximum((np.abs(curvature)-(friction_factor*downforce_factor/mass)),1e-5)
         v_corner=np.minimum(np.sqrt(friction_factor*constants.GRAVITY/denom),v_max)
         for i in range(2*len(self.midline)-1,-1,-1):

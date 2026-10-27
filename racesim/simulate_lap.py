@@ -4,6 +4,7 @@ def simulate_lap(car, track, controller, max_steps=20000,dt=0.01):
     velocity_list=[car.get_velocity()]
     heading_angle=[car.get_yaw()]
     controls=[[0,0]]
+    current_steering_rate=[car.get_current_steering_rate()]
     index=0
     stuck=0
     progress_stuck=0
@@ -39,6 +40,7 @@ def simulate_lap(car, track, controller, max_steps=20000,dt=0.01):
         velocity_list.append(car.get_velocity())
         heading_angle.append(car.get_yaw())
         controls.append(control_inputs)
+        current_steering_rate.append(car.get_current_steering_rate())
     cartrace=np.stack(cartrace)
     velocity_list=np.stack(velocity_list)
     heading_angle=np.stack(heading_angle)

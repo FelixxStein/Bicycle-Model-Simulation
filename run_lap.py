@@ -9,7 +9,7 @@ import numpy as np
 from racesim.visualization.plot import Plot
 from racesim.simulate_lap import simulate_lap
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Tune controller parameters on a track.")
+    parser = argparse.ArgumentParser(description="Set lap settings.")
     parser.add_argument("--controller", choices=["basic_drive", "mppi"], default="mppi",help="What controller do you want?")
     parser.add_argument("--track", type=str, default="Hockenheim", help="What track do you want?")
     parser.add_argument("--configs", type=str, default="best_configs", help="What configuration of the controller do you want?")
@@ -48,12 +48,6 @@ if __name__ == "__main__":
     results=simulate_lap(car=car,track=track,controller=controller,)
     cartrace=results["cartrace"]
     velocity_list=results["velocity_list"]
-    if args.plot:
-        borderleft=track.get_border_left()
-        borderright=track.get_border_right()
-        plot=Plot(borderleft, borderright)
-        plot.plot_speed(cartrace,velocity_list)
-        plot.show()
     heading_angle=results["heading_angle"]
     controls=results["controls"]
     lap_time=results["lap_time"]
@@ -80,3 +74,9 @@ if __name__ == "__main__":
         d["substeps"]=controller.get_substep()
     np.savez(run_dir / f"{args.controller}_{args.seed}_{args.track}", **d)
     print("Reason:", reason," and Lap_time:", lap_time)
+    if args.plot:
+        borderleft=track.get_border_left()
+        borderright=track.get_border_right()
+        plot=Plot(borderleft, borderright)
+        plot.plot_speed(cartrace,velocity_list)
+        plot.show()

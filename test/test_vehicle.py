@@ -37,7 +37,7 @@ def test_standstill_and_brake():
         car.time_step(control_inputs=np.array([0,-10]),delta_t=dt)
     assert np.isclose(car.get_vx(),0,atol=0.000001), "car is getting negative speed from braking"
 
-def test_standstill_and_brake():
+def test_rolling_back_and_brake():
     car=vehicle.DynamicVehicle(starting_vy=0,starting_vx=-5)
     for i in range(100):
         car.time_step(control_inputs=np.array([0,-10]),delta_t=dt)
