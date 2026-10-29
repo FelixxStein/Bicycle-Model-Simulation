@@ -298,14 +298,14 @@ Parameter sets in `configs/`:
 | Config | Description |
 |---|---|
 | `best_configs` | final tuned set (mean of the last generation's elites), used for all results above |
-| `fastest_config_v4.json` | fastest set found during tuning (87.2 s on its tuning seeds), less robust on new seeds |
+| `fastest_config_v4` | fastest set found during tuning (87.2 s on its tuning seeds), less robust on new seeds |
 
 The lap is saved to `runs/<controller>_<seed>_<track>_<config>.npz`.
 
 **Replay a lap**
 
 ```bash
-python replay.py --path runs/mppi_1900_Hockenheim_cem_mean.npz
+python replay.py --path runs/mppi_1900_Hockenheim_best_configs.npz
 ```
 
 Options: `--window_width`, `--window_height`. Press `R` to restart, `Esc` to quit.
