@@ -29,7 +29,7 @@ def test_batch_compatible():
     assert np.allclose(car_1.state, state[0],rtol=0.01), "error at batch compatibility: check slow speed and acceleration from there"
     assert np.allclose(car_2.state, state[1],rtol=0.01), "error at batch compatibility: check steering and transition between dynamic and kinematic model"
     assert np.allclose(car_3.state, state[2],rtol=0.01), "error at batch compatibility: check high vy scenarios"
-    assert np.allclose(car_4.state, state[3],rtol=0.01), "error at batch compatibility: check high speed and breaking"
+    assert np.allclose(car_4.state, state[3],rtol=0.01), "error at batch compatibility: check high speed and braking"
 
 def test_standstill_and_brake():
     car=vehicle.DynamicVehicle(starting_vy=0,starting_vx=0)

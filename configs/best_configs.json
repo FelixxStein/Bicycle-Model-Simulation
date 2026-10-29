@@ -1,15 +1,15 @@
 {
     "number_plans": 1000,
-    "number_control_steps": 58,
+    "number_control_steps": 59,
     "physics_time_step": 0.01,
     "substeps": 5,
-    "sd_acceleration": 2.503979635188734,
-    "temperature_factor": 0.26044599391878887,
+    "sd_acceleration": 1.8025,
+    "temperature_factor": 0.4905,
     "starting_plan": null,
-    "ao": 2.5204613319083182,
-    "c_under": 0.8607385435385955,
-    "c_over": 0.3298656715607697,
-    "c_close": 0.7599386714246157,
-    "c_steer": 2.426014352516744,
-    "profile_grip_factor": 0.9711379216620644
+    "ao": 3.7383,
+    "c_under": 0.9016,
+    "c_over": 0.1478,
+    "c_close": 1.3913,
+    "c_steer": 0.6114,
+    "profile_grip_factor": 0.9323
 }

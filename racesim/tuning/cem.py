@@ -93,9 +93,9 @@ class Tuning:
             print("score:",mean,"Mean:",current_mean)
 
     def set_start_median(self):
-        array=[0.18059570323893012,3.255868523905106,2.3544670063559345,1.401774358294363,1.014917219517641,0.9144784340353015,67,0.7200081587015296,2.5184027645699096]
+        array=[0.67311357,3.00287215,2.31400557,1.16107378,0.83165516,0.89143326,56.84026243,0.76538571,2.66671344]
         self.mean_value_array=np.where(self.log_array,np.log10(array), array)
-        self.o=(self.z_max-self.z_min)/8
+        self.o=(self.z_max-self.z_min)/6
         self.o=np.maximum(self.o,self.o_min)
 
 
@@ -110,7 +110,7 @@ def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps
         c_close=params[7]
         c_steer=params[8]
         car=vehicle.DynamicVehicle()
-        track=Track(csv_racetrack=csv_racetrack,friction_coefficient=car.get_min_friction_coefficient(),downforce_factor=car.get_downforce_factor(),mass=car.get_mass(),v_max=car.get_max_speed(),max_break=car.get_max_brake(),profile_grip_factor=profile_grip_factor)
+        track=Track(csv_racetrack=csv_racetrack,friction_coefficient=car.get_min_friction_coefficient(),downforce_factor=car.get_downforce_factor(),mass=car.get_mass(),v_max=car.get_max_speed(),max_brake=car.get_max_brake(),profile_grip_factor=profile_grip_factor)
         mppi=MPPIController(car=car,track=track,number_plans=number_plans,number_control_steps=number_control_steps,physics_time_step=physics_time_step,substeps=substeps,sd_acceleration=sd_acceleration,temperature_factor=temperature_factor,starting_plan=None,seed=seed,ao=ao,c_under=c_under, c_over=c_over, c_close=c_close,c_steer=c_steer)
         car.set_starting_position(track.get_midline())
         car.set_starting_angle(track.get_midline())

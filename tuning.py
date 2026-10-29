@@ -10,5 +10,5 @@ if __name__ == "__main__":
     parser.add_argument("--generations", type=int, default=50, help="How many generations do you want?")
     args = parser.parse_args()
     tuning=Tuning(K=args.population_size,k=args.elites,seeds=args.seed, processes=args.processes)
-    #tuning.set_start_median()
+    tuning.set_start_median()
     tuning.run(args.generations)
