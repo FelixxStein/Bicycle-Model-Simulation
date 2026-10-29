@@ -1,8 +1,8 @@
 import numpy as np
 import racesim.constants as constants
 class PIDSpeedController:
-    def __init__(self,track,max_break,max_acceleration, max_speed,lookahead_distance, max_lateral_acceleration, Kp,Ki,Kd, grip_usage, friction_coefficient, downforce_factor, car_mass):
-        self.max_break=max_break
+    def __init__(self,track,max_brake,max_acceleration, max_speed,lookahead_distance, max_lateral_acceleration, Kp,Ki,Kd, grip_usage, friction_coefficient, downforce_factor, car_mass):
+        self.max_brake=max_brake
         self.Kp=Kp
         self.Ki=Ki
         self.Kd=Kd
@@ -20,7 +20,7 @@ class PIDSpeedController:
         self.downforce_factor=downforce_factor
         self.max_acceleration=max_acceleration
         self.car_mass=car_mass
-        self.planner_break=0.6*grip_usage*friction_coefficient*constants.GRAVITY
+        self.planner_brake=0.6*grip_usage*friction_coefficient*constants.GRAVITY
 
 
         self.corner_speed_per_point=np.where(abs(self.curvature_per_pathpoint)>1e-5,np.minimum(np.sqrt(self.max_lateral_acceleration/abs(self.curvature_per_pathpoint)),max_speed), max_speed)
@@ -35,7 +35,7 @@ class PIDSpeedController:
     def calculate_min_v_allowed(self,index):
         v_allowed_min=self.max_speed
         for i in range(index, index+self.lookahead_distance):
-            v_allowed=np.sqrt(self.corner_speed_per_point[i%len(self.path)]**2+2*self.planner_break*(self.track.forward_distance(index,i%len(self.path))))
+            v_allowed=np.sqrt(self.corner_speed_per_point[i%len(self.path)]**2+2*self.planner_brake*(self.track.forward_distance(index,i%len(self.path))))
             if v_allowed<v_allowed_min:
                 v_allowed_min=v_allowed
         return v_allowed_min

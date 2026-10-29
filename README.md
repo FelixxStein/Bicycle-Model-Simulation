@@ -1,6 +1,26 @@
 # MPPI Racing
 Sampling-based model predictive control for an autonomous race car on real F1 tracks
-## Features
+
+![MPPI lap on Hockenheim](docs/media/hero_gif.gif)
+
+*MPPI on Hockenheim: 1000 sampled rollouts every 0.05 s (cyan = high weight, red = crashed), the chosen plan in yellow.*
+
+## Results
+
+| Controller | Track | Seeds | Result |
+|---|---|---|---|
+| Baseline (Pure Pursuit + PID, hand-tuned) | Hockenheim | – | **131.6 s** |
+| Baseline (Pure Pursuit + PID, hand-tuned) | Spielberg | – | leaves the track after 34 s |
+| MPPI (CEM-tuned, `best_configs`) | Hockenheim | 1900 / 7 / 201120 / 250105 | **89.6 / 89.4 / 89.8 / 89.4 s** (mean 89.5 s) |
+| MPPI (CEM-tuned, `best_configs`) | Spielberg | 1900 / 7 | spins after 56–63 s |
+
+- MPPI finishes **4/4 unseen seeds** on Hockenheim in 89.4–89.8 s, about **32 % faster** than the baseline. None of these seeds were used during tuning.
+- The fastest lap found during tuning was **87.0 s**, but that parameter set was overfitted to its seeds and didn't hold up on new ones (see [Tuning](#4-hyperparameter-tuning-cross-entropy-method)).
+- For scale: the F1 qualifying records are 71.8 s at Hockenheim (2019) and 62.9 s at the Red Bull Ring (2020). The simulated car has no power limit and simplified tires, so this is a rough comparison, not a benchmark.
+- The baseline is hand-tuned and MPPI is CEM-tuned, so the gap is partly the controller and partly the tuning.
+
+![Racing line colored by speed](docs/media/speed_plot.png)
+
 ## Features
 
 ### 🚗 Vehicle Model
@@ -69,6 +89,7 @@ Sampling-based model predictive control for an autonomous race car on real F1 tr
 | Common controller interface | All controllers implement `compute_control(state, progress, index)`; one shared `simulate_lap` for runs and tuning |
 | CLI & configs | `argparse` entry points, parameter sets stored as JSON |
 | Physics tests | `pytest` suite: standstill braking, rolling backwards, sideways sliding, batch consistency |
+
 ## How it works
 
 ### 1. Vehicle model
@@ -84,7 +105,7 @@ $$
 **Tires.** Lateral forces follow a simplified Magic Formula, with the peak force set by the axle load:
 
 $$
-F_y = \mu F_z \,\sin\!\big(C \arctan(B\alpha)\big)
+F_y = \mu F_z \sin\big(C \arctan(B\alpha)\big)
 $$
 
 The front slip angle $\alpha$ is computed in the wheel frame, so it stays correct for large angles, sliding and even rolling backwards.
@@ -101,7 +122,7 @@ $$
 \begin{aligned}
 m(\dot v_x - v_y r) &= F_{x,f}\cos\delta - F_{y,f}\sin\delta + F_{x,r} - F_{drag} - F_{roll} \\
 m(\dot v_y + v_x r) &= F_{x,f}\sin\delta + F_{y,f}\cos\delta + F_{y,r} \\
-I_z \dot r &= l_f\,(F_{x,f}\sin\delta + F_{y,f}\cos\delta) - l_r F_{y,r}
+I_z \dot r &= l_f (F_{x,f}\sin\delta + F_{y,f}\cos\delta) - l_r F_{y,r}
 \end{aligned}
 $$
 
@@ -110,7 +131,7 @@ Axle loads include static weight distribution, longitudinal load transfer and ae
 **Steering actuator.** The wheels follow the steering target with a time constant and a rate limit:
 
 $$
-\dot\delta = \mathrm{clip}\!\left(\frac{\delta_{target} - \delta}{\tau},\ -\dot\delta_{max},\ \dot\delta_{max}\right)
+\dot\delta = \mathrm{clip}\left(\frac{\delta_{target} - \delta}{\tau},\ -\dot\delta_{max},\ \dot\delta_{max}\right)
 $$
 
 **Low-speed blending.** Below 8 m/s the dynamic model is smoothly blended with a kinematic model (fully kinematic below 3 m/s), because tire slip angles become ill-conditioned near standstill.
@@ -126,7 +147,7 @@ $$
 A backward pass then adds braking zones, so the profile is always reachable with the available braking:
 
 $$
-v_i = \min\!\left(v_{corner,i},\ \sqrt{v_{i+1}^2 + 2\,a_{brake}(v_{i+1})\,\Delta s}\right)
+v_i = \min\left(v_{corner,i},\ \sqrt{v_{i+1}^2 + 2 a_{brake}(v_{i+1}) \Delta s}\right)
 $$
 
 ### 3. MPPI controller
@@ -135,16 +156,13 @@ Model Predictive Path Integral control is a sampling-based MPC: instead of solvi
 
 1. **Sample** $N = 1000$ control sequences around the current plan $U$ (horizon ≈ 3 s):
    $V_k = U + \varepsilon_k$, with time-correlated noise
-   $\varepsilon_t = \alpha\,\varepsilon_{t-1} + \sqrt{1-\alpha^2}\,w_t$ ($\alpha = 0.9$) for smooth inputs.
+   $\varepsilon_t = \alpha \varepsilon_{t-1} + \sqrt{1-\alpha^2} w_t$ ($\alpha = 0.9$) for smooth inputs.
    The steering noise shrinks with speed, $\sigma_\delta \propto 1/v^2$. Three candidate plans (previous plan, full throttle, full brake) are always added.
 2. **Simulate** all sequences in parallel with the same vehicle model (batched NumPy).
-3. **Rate** each rollout with a cost function:
+3. **Rate** each rollout $k$ with a cost $S_k$ (lower is better):
 
 $$
-S_k = -\text{progress} + C_{crash}\,\mathbb{1}_{crash} -
-c_{under}\min(v_T, v_{ref}) + c_{over}\max(0, v_T - v_{ref}) + 
-c_{close}\sum_t \max(0,\ d_{safe}(v) - d_t)^2 +
-c_{steer}\sum_t \left(\frac{\Delta\delta_t}{\delta_{max}}\right)^2
+S_k = -\text{progress} + C_{crash} \mathbb{1}_{crash} - c_{under}\min(v_T, v_{ref}) + c_{over}\max(0, v_T - v_{ref}) + c_{close}\sum_t \max(0,\ d_{safe}(v) - d_t)^2 + c_{steer}\sum_t \left(\frac{\Delta\delta_t}{\delta_{max}}\right)^2
 $$
 
 A rollout counts as crashed if it gets too close to the track edge **or** spins (faces more than 90° against the driving direction). After a crash its progress is frozen.
@@ -152,7 +170,7 @@ A rollout counts as crashed if it gets too close to the track edge **or** spins 
 4. **Weight** the rollouts with an adaptive temperature $\lambda$ (scaled by the cost spread of non-crashed rollouts):
 
 $$
-w_k = \frac{\exp\!\big(-(S_k - S_{min})/\lambda\big)}{\sum_j \exp\!\big(-(S_j - S_{min})/\lambda\big)}
+w_k = \frac{\exp\big(-(S_k - S_{min})/\lambda\big)}{\sum_j \exp\big(-(S_j - S_{min})/\lambda\big)}
 $$
 
 5. **Update & execute:** $U \leftarrow \sum_k w_k V_k$, apply the first control, shift the plan by one step and repeat.
@@ -168,6 +186,12 @@ MPPI has many coupled parameters, so they are tuned automatically with the Cross
 
 Tuned parameters: temperature factor, steering noise scale, acceleration noise, terminal speed weights $c_{under}$/$c_{over}$, speed profile grip factor, horizon length, edge penalty $c_{close}$ and steering smoothness $c_{steer}$.
 
+**The tuning run.** 20 parameter sets × 2 seeds per generation on Hockenheim: a cold start on Kaggle (2 generations), then 15 more generations overnight on a laptop, warm-started from the Kaggle result.
+
+![CEM tuning progress](docs/media/tuning_progress.png)
+
+The share of finished laps rose from 27/40 to 34/40, and the fastest set reached 87.2 s (mean of both seeds) in generation 11. That set, however, was **overfitted to its two seeds**: with only 2 seeds per set, the best score of a generation is partly luck (winner's curse). The final configuration is therefore the **mean of the elite sets of the last generation** rather than the single best set. It's slightly slower but finishes every unseen seed.
+
 ## Fighting the Optimizer: Exploits & Fixes
 
 An optimizer doesn't know what "realistic" means. It only knows the equations. Every weakness in the vehicle model was found and exploited by MPPI and CEM, and every fix made the physics more correct. These were the most interesting ones:
@@ -179,6 +203,27 @@ An optimizer doesn't know what "realistic" means. It only knows the equations. E
 | 3 | **Free energy when rolling backwards:** steering while rolling backwards accelerated the car | The front slip angle assumed forward rolling, so the steering effect had the wrong sign backwards | Front slip angle computed in the wheel frame, using $\lvert v_{along} \rvert$ |
 | 4 | **Ice slide:** slid sideways at 13 m/s with full brakes without losing any speed | Braking force flipped sign with $v_x \approx 0$ and cancelled out, but still used up the entire grip budget of the friction circle, so no lateral force was left | Braking force scales with the longitudinal share of the motion $v_x / \lvert v \rvert$; load transfer uses the effective braking force |
 | 5 | **Reverse to the finish line:** spun at 50 m/s and rolled backwards through the last corners, still counting as a finished lap | Neither the cost function nor the lap logic penalized facing the wrong way | Facing more than 90° against the driving direction now counts as a crash, both in the MPPI cost and in the lap evaluation |
+
+<details>
+<summary><b>🎥 See the exploits in action</b></summary>
+
+**#1 Magic brake**
+
+![Magic brake](docs/media/MagicBrake.gif)
+
+**#2 Spiral turns**
+
+![Spiral turns](docs/media/spinning.gif)
+
+**#4 Ice slide**
+
+![Ice slide](docs/media/sliding_on_ice.gif)
+
+**#5 Reverse to the finish line**
+
+![Reverse to the finish line](docs/media/rolling_back.gif)
+
+</details>
 
 Each fix was verified with a physics test (`pytest`), e.g. a car sliding sideways with full brakes must decelerate at roughly $\mu g$ instead of keeping its speed.
 
@@ -211,7 +256,7 @@ Bicycle-Model-Simulation/
 ├── results/                    # tuning logs (CSV)
 ├── runs/                       # saved laps (.npz, not tracked by git)
 ├── assets/                     # car sprite
-├── docs/                       # roadmap
+├── docs/                       # roadmap, media (GIFs, plots)
 └── test/                       # pytest physics tests
 ```
 
@@ -248,12 +293,19 @@ python run_lap.py --track Spielberg --seed 7 --log --plot
 | `--log` | off | store MPPI rollouts for the replay viewer |
 | `--plot` | off | show the speed plot after the lap |
 
-The lap is saved to `runs/<controller>_<seed>_<track>.npz`.
+Parameter sets in `configs/`:
+
+| Config | Description |
+|---|---|
+| `best_configs` | final tuned set (mean of the last generation's elites), used for all results above |
+| `fastest_config_v4.json` | fastest set found during tuning (87.2 s on its tuning seeds), less robust on new seeds |
+
+The lap is saved to `runs/<controller>_<seed>_<track>_<config>.npz`.
 
 **Replay a lap**
 
 ```bash
-python replay.py --path runs/mppi_1900_Hockenheim.npz
+python replay.py --path runs/mppi_1900_Hockenheim_cem_mean.npz
 ```
 
 Options: `--window_width`, `--window_height`. Press `R` to restart, `Esc` to quit.
@@ -272,7 +324,7 @@ python tuning.py --processes 6 --population_size 20 --seed 25 1
 | `--processes` | `6` | parallel worker processes |
 | `--generations` | `50` | number of generations |
 
-Every lap is logged to `results/<timestamp>.csv`.
+Every lap is logged to `results/<timestamp>.csv`. A free Kaggle notebook works too: run it with `timeout -s INT <seconds>` so it stops cleanly before the session limit.
 
 ## Tests
 
@@ -285,7 +337,12 @@ The physics tests cover standstill braking, rolling backwards, sideways sliding,
 ## Limitations & Next Steps
 
 ### Known limitations
-- **Corners are found late:** steering noise scales with $1/v^2$, so at high speed MPPI barely explores large steering angles. It brakes hard until the noise is large enough to "discover" the corner, then turns in late.
+- **MPPI spins on Spielberg:** the parameters were tuned on Hockenheim only. Spielberg has heavy braking into tight corners, where the car oversteers under braking. Because the steering noise shrinks with $1/v^2$, MPPI hardly samples the large, fast countersteer needed to catch the slide, so the car spins.
+
+  ![MPPI spinning on Spielberg](docs/media/spielberg_crash.gif)
+
+- **Corners are found late:** for the same reason, at high speed MPPI barely explores large steering angles. It brakes hard until the noise is large enough to "discover" the corner, then turns in late.
+- **Light drifting in slow corners:** the car slides with ~15–19° body slip angle in some hairpins. This isn't an exploit (the total acceleration stays within the grip limit), but the tire model barely loses grip past the peak slip angle, so sliding costs almost nothing.
 - **Baseline fails on Spielberg:** Pure Pursuit steers towards a lookahead point on the centerline, so in tight hairpins it cuts the inside of the corner and leaves the track. It finishes Hockenheim, but not Spielberg.
 - **No power limit:** full acceleration is available at any speed.
 - **Simplified tires:** almost no grip loss after the peak slip angle, no tire temperature or wear.
@@ -293,6 +350,8 @@ The physics tests cover standstill braking, rolling backwards, sideways sliding,
 - **Results are platform-dependent:** the simulation is chaotic, so the same seed can produce different laps on different NumPy versions or CPUs.
 
 ### Small improvements
+- Tuning: 3–4 seeds per parameter set to reduce overfitting to lucky seeds
+- Tune the baseline with CEM as well, for a fair comparison
 - Baseline: shorter or curvature-dependent lookahead distance so Pure Pursuit stops cutting tight hairpins
 - Store the end reason (finished / off track / stuck / timeout / spin) in the saved `.npz` and use readable names instead of codes 1–5
 - Make the warm start a CLI flag and load the start parameters from a JSON config instead of hard-coding them
@@ -304,19 +363,22 @@ The physics tests cover standstill braking, rolling backwards, sideways sliding,
 - Naming: `max_break` → `max_brake`, `get_current_steering_rate` returns an angle
 - Baseline: use the track's speed profile instead of its own
 - Return the actual steering angle from `simulate_lap` (it's already collected)
-- Cleanup: remove the empty `animate/` folder and the tracked `.DS_Store`, add a license file
 - More tests: track progress across the finish line, spin detection, an MPPI smoke test
 - Viewer: draw the front wheels with the real steering angle, add a HUD (speed, lap time)
 
 ### Bigger steps
-- **Steering feedforward:** center the sampling on a plan that already follows the track curvature (or a Pure Pursuit rollout as a candidate plan), so corners are found early
+- **Steering feedforward:** center the sampling on a plan that already follows the track curvature (or a Pure Pursuit rollout as a candidate plan), so corners are found early, plus a minimum steering noise at high speed so countersteering can be sampled
+- **Multi-track tuning:** score every parameter set on Hockenheim and Spielberg together, so it generalizes to unseen tracks
 - **More realistic physics:** power limit, tire grip falloff, a speed profile including drag and power
 - **Better terminal cost:** estimated time to the finish line instead of only the terminal speed
 - **Benchmark against the time-optimal raceline** (TUMFTM `global_racetrajectory_optimization`) to separate model limits from controller limits
-- **Robustness:** evaluate on many seeds and unseen tracks, multi-track tuning
 - **GPU rollouts with PyTorch:** more samples and longer horizons
 - **Reinforcement learning:** Gymnasium environment, PPO, comparison against MPPI
 
 ## Acknowledgements
 
 Track data from the [TUMFTM racetrack database](https://github.com/TUMFTM/racetrack-database) (Institute of Automotive Technology, Technical University of Munich).
+
+## License
+
+The code in this repository is released under the [MIT License](LICENSE). The track data in `data/racetracks/` comes from the TUMFTM racetrack database and is subject to its own license.

@@ -4,7 +4,7 @@ import numpy as np
 import racesim.constants as constants
 
 class Track:
-    def __init__(self,csv_racetrack,*,friction_coefficient,downforce_factor, mass, v_max, max_break, profile_grip_factor=0.9, curvature_lookahead_distance=2,lookahead_closest_index=40,lookbefore_closest_index=5, margin=0.5):
+    def __init__(self,csv_racetrack,*,friction_coefficient,downforce_factor, mass, v_max, max_brake, profile_grip_factor=0.9, curvature_lookahead_distance=2,lookahead_closest_index=40,lookbefore_closest_index=5, margin=0.5):
         REPO_ROOT = Path(__file__).resolve().parent.parent
         self.margin=margin
         csv_path = REPO_ROOT /"data" /"racetracks" /csv_racetrack
@@ -66,7 +66,7 @@ class Track:
 
         self.border_right=self.midline-w_tr_right_column*self.normal
         self.border_left=self.midline+w_tr_left_column*self.normal
-        self.max_break=max_break
+        self.max_brake=max_brake
 
 
         #calculate corner speed per point
@@ -76,8 +76,8 @@ class Track:
         denom=np.maximum((np.abs(curvature)-(friction_factor*downforce_factor/mass)),1e-5)
         v_corner=np.minimum(np.sqrt(friction_factor*constants.GRAVITY/denom),v_max)
         for i in range(2*len(self.midline)-1,-1,-1):
-            a_break=np.minimum(friction_factor*(constants.GRAVITY+((downforce_factor*(v_allowed[(i+1)%len(self.midline)]**2))/mass)), self.max_break)
-            v_allowed[i%len(self.midline)]=np.minimum(v_corner[i%len(self.midline)],np.sqrt(v_allowed[(i+1)%len(self.midline)]**2+2*a_break*self.forward_distance(i%len(self.midline), (i+1)%len(self.midline))))
+            a_brake=np.minimum(friction_factor*(constants.GRAVITY+((downforce_factor*(v_allowed[(i+1)%len(self.midline)]**2))/mass)), self.max_brake)
+            v_allowed[i%len(self.midline)]=np.minimum(v_corner[i%len(self.midline)],np.sqrt(v_allowed[(i+1)%len(self.midline)]**2+2*a_brake*self.forward_distance(i%len(self.midline), (i+1)%len(self.midline))))
 
         self.v_allowed=np.array(v_allowed)
             

@@ -263,5 +263,5 @@ class DynamicVehicle(Vehicle):
     def get_min_friction_coefficient(self):
         return min(self.friction_coefficient_front, self.friction_coefficient_rear)
 
-    def get_current_steering_rate(self):
+    def get_current_steering_angle(self):
         return self.state[...,6]

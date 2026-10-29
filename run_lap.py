@@ -36,13 +36,13 @@ if __name__ == "__main__":
     run_dir = Path("runs")
     run_dir.mkdir(exist_ok=True)
     car=vehicle.DynamicVehicle()
-    track=Track(trackname,friction_coefficient=car.get_min_friction_coefficient(), downforce_factor=car.get_downforce_factor(), mass=car.get_mass(), v_max=car.get_max_speed(),max_break=car.get_max_brake(), profile_grip_factor=profile_grip_factor)
+    track=Track(trackname,friction_coefficient=car.get_min_friction_coefficient(), downforce_factor=car.get_downforce_factor(), mass=car.get_mass(), v_max=car.get_max_speed(),max_brake=car.get_max_brake(), profile_grip_factor=profile_grip_factor)
     path=track.get_midline()
     car.set_starting_angle(path)
     car.set_starting_position(path)
 
     if args.controller=="basic_drive":
-        controller=BasicDriveController(track=track,max_break=car.get_max_brake(),max_acceleration=car.get_max_acceleration(),wheel_base=car.get_wheelbase(),max_speed=car.get_max_speed(),friction_coefficient_front=car.get_friction_coefficient_front(),friction_coefficient_rear=car.get_friction_coefficient_rear(),downforce_factor=car.get_downforce_factor(),car_mass=car.get_mass())
+        controller=BasicDriveController(track=track,max_brake=car.get_max_brake(),max_acceleration=car.get_max_acceleration(),wheel_base=car.get_wheelbase(),max_speed=car.get_max_speed(),friction_coefficient_front=car.get_friction_coefficient_front(),friction_coefficient_rear=car.get_friction_coefficient_rear(),downforce_factor=car.get_downforce_factor(),car_mass=car.get_mass())
     else:
         controller=MPPIController(car=car,track=track,number_plans=number_plans,number_control_steps=number_control_steps,physics_time_step=physics_time_step,substeps=substeps,sd_acceleration=sd_acceleration,temperature_factor=temperature_factor,starting_plan=starting_plan,seed=args.seed,ao=ao,c_under=c_under,c_over=c_over,c_close=c_close,c_steer=c_steer, log_rollouts=args.log)
     results=simulate_lap(car=car,track=track,controller=controller,)
@@ -72,7 +72,7 @@ if __name__ == "__main__":
         d["current_trajectory"]=current_trajectory
     if args.controller=="mppi":
         d["substeps"]=controller.get_substep()
-    np.savez(run_dir / f"{args.controller}_{args.seed}_{args.track}", **d)
+    np.savez(run_dir / f"{args.controller}_{args.seed}_{args.track}_{args.configs}", **d)
     print("Reason:", reason," and Lap_time:", lap_time)
     if args.plot:
         borderleft=track.get_border_left()

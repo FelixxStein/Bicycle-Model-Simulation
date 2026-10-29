@@ -4,7 +4,7 @@ import numpy as np
 class BasicDriveController:
     def __init__(self,
                 track,
-                max_break,
+                max_brake,
                 max_acceleration,
                 wheel_base,
                 max_speed,
@@ -26,7 +26,7 @@ class BasicDriveController:
         self.dt=dt
         self.track=track
         friction_coefficient=min(friction_coefficient_rear, friction_coefficient_front)
-        self.PID=PIDSpeedController(track, max_break, max_acceleration,max_speed,lookahead_distance_PID,max_lateral_acceleration, Kp,Ki,Kd, grip_usage, friction_coefficient, downforce_factor,car_mass)
+        self.PID=PIDSpeedController(track, max_brake, max_acceleration,max_speed,lookahead_distance_PID,max_lateral_acceleration, Kp,Ki,Kd, grip_usage, friction_coefficient, downforce_factor,car_mass)
         self.PP=PurePursuitController(track, wheel_base, lookahead_distance_minimum_PP, lookahead_distance_maximum_PP, lookahead_scale_factor_PP, lookahead_distance_base_PP)
 
     def compute_control(self, state, progress, index):

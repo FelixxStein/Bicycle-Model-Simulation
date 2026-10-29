@@ -110,7 +110,7 @@ def run_lap(params, seed,csv_racetrack, number_plans,physics_time_step, substeps
         c_close=params[7]
         c_steer=params[8]
         car=vehicle.DynamicVehicle()
-        track=Track(csv_racetrack=csv_racetrack,friction_coefficient=car.get_min_friction_coefficient(),downforce_factor=car.get_downforce_factor(),mass=car.get_mass(),v_max=car.get_max_speed(),max_break=car.get_max_brake(),profile_grip_factor=profile_grip_factor)
+        track=Track(csv_racetrack=csv_racetrack,friction_coefficient=car.get_min_friction_coefficient(),downforce_factor=car.get_downforce_factor(),mass=car.get_mass(),v_max=car.get_max_speed(),max_brake=car.get_max_brake(),profile_grip_factor=profile_grip_factor)
         mppi=MPPIController(car=car,track=track,number_plans=number_plans,number_control_steps=number_control_steps,physics_time_step=physics_time_step,substeps=substeps,sd_acceleration=sd_acceleration,temperature_factor=temperature_factor,starting_plan=None,seed=seed,ao=ao,c_under=c_under, c_over=c_over, c_close=c_close,c_steer=c_steer)
         car.set_starting_position(track.get_midline())
         car.set_starting_angle(track.get_midline())
