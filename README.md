@@ -232,7 +232,7 @@ Each fix was verified with a physics test (`pytest`), e.g. a car sliding sideway
 ## Project Structure
 
 ```
-Bicycle-Model-Simulation/
+MPPI_Racing/
 ├── racesim/                    # core library
 │   ├── vehicle.py              # dynamic single-track model (tires, friction circle, steering actuator)
 │   ├── track.py                # track geometry, localization, crash/spin detection, speed profile
@@ -265,8 +265,8 @@ Bicycle-Model-Simulation/
 Requires Python 3.14 (tested on macOS).
 
 ```bash
-git clone https://github.com/FelixxStein/Bicycle-Model-Simulation.git
-cd Bicycle-Model-Simulation
+git clone https://github.com/FelixxStein/MPPI_Racing.git
+cd MPPI_Racing
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
